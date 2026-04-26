@@ -59,7 +59,8 @@ class ClaudeRunnerTest < ActiveSupport::TestCase
 
     call = fake.calls.first
     assert_equal @repo, call[:cwd]
-    assert_includes call[:argv], "claude"
+    # Bin may be resolved to an absolute path on Windows.
+    assert_match(/(?:\A|[\/\\])claude(?:\.exe|\.cmd|\.bat)?\z/i, call[:argv].first)
     assert_includes call[:argv], "do thing"
   end
 

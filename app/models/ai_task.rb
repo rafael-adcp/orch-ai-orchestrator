@@ -1,8 +1,20 @@
 class AiTask < ApplicationRecord
+  class InvalidTransition < StandardError; end
+
   STATUSES  = %w[pending running done failed cancelled].freeze
   PROVIDERS = %w[claude].freeze # add "copilot" etc. as support lands
 
   PENDING, RUNNING, DONE, FAILED, CANCELLED = STATUSES
+
+  # Allowed source states per transition. Tightens the model so callers
+  # can't silently flip a finished/cancelled task back into the pipeline.
+  TRANSITIONS = {
+    RUNNING   => [ PENDING ],
+    DONE      => [ RUNNING ],
+    FAILED    => [ PENDING, RUNNING ], # failures can fire from either
+    CANCELLED => [ PENDING ],
+    PENDING   => [ FAILED ]            # only retry-from-failed re-enters pending
+  }.freeze
 
   validates :status,    inclusion: { in: STATUSES }
   validates :provider,  inclusion: { in: PROVIDERS }
@@ -20,24 +32,30 @@ class AiTask < ApplicationRecord
   end
 
   def mark_running!(now:, log_path:)
-    update!(status: RUNNING, started_at: now, log_path: log_path)
+    transition_to!(RUNNING, started_at: now, log_path: log_path)
   end
 
   def mark_done!(now:)
-    update!(status: DONE, finished_at: now)
+    transition_to!(DONE, finished_at: now)
   end
 
   def mark_failed!(error:, now:)
-    update!(status: FAILED, error: error, finished_at: now)
+    transition_to!(FAILED, error: error, finished_at: now)
   end
 
   def retry!
-    update!(status: PENDING, error: nil, started_at: nil, finished_at: nil)
+    transition_to!(PENDING, error: nil, started_at: nil, finished_at: nil)
     enqueue!
   end
 
   def cancel!
-    update!(status: CANCELLED) if status == PENDING
+    return false unless can_transition?(CANCELLED)
+    transition_to!(CANCELLED)
+    true
+  end
+
+  def can_transition?(target)
+    TRANSITIONS.fetch(target, []).include?(status)
   end
 
   def log_text
@@ -48,5 +66,12 @@ class AiTask < ApplicationRecord
 
   def assign_id
     self.id ||= SecureRandom.hex(6)
+  end
+
+  def transition_to!(target, attrs = {})
+    unless can_transition?(target)
+      raise InvalidTransition, "#{status} -> #{target} not allowed for AiTask #{id}"
+    end
+    update!(attrs.merge(status: target))
   end
 end

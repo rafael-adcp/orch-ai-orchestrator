@@ -1,4 +1,4 @@
-# orchestrator-rails — Claude Code task queue
+# orchestrator (Orch) — Claude Code task queue
 
 Persistent SQLite queue + **Solid Queue** worker pool + **Mission Control**
 dashboard + a Rails web UI. Queue up tasks and it runs `claude -p` in
@@ -59,8 +59,6 @@ and updates the row's status in SQLite.
 ## Setup (Windows / PowerShell)
 
 ```powershell
-cd C:\Users\Rafael Prado\Desktop\repos\orchestrator-rails
-
 # Ruby 3.3.x is required. If `ruby -v` doesn't print 3.3, prepend the path:
 $env:PATH = "C:\Ruby33-x64\bin;$env:PATH"
 

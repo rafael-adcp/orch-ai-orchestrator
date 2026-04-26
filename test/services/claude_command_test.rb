@@ -8,7 +8,10 @@ class ClaudeCommandTest < ActiveSupport::TestCase
   test "builds plain claude argv with defaults" do
     cmd = ClaudeCommand.new(bin: "claude", flags: [ "-p" ], model: "sonnet", max_turns: 30)
     argv = cmd.build(task)
-    assert_equal [ "claude", "-p", "--model", "sonnet", "--max-turns", "30", "do x" ], argv
+    # On Windows the bin is resolved to an absolute path (e.g. claude.exe);
+    # elsewhere it stays as "claude". Match either form.
+    assert_match(/(?:\A|[\/\\])claude(?:\.exe|\.cmd|\.bat)?\z/i, argv.first)
+    assert_equal [ "-p", "--model", "sonnet", "--max-turns", "30", "do x" ], argv.drop(1)
   end
 
   test "task model overrides default model" do
