@@ -75,6 +75,38 @@ class ClaudeRunnerTest < ActiveSupport::TestCase
     assert content.include?("line 2")
   end
 
+  test "unexpected error marks task failed and re-raises" do
+    boom = Class.new do
+      def run(_argv, cwd:, on_line:)
+        raise RuntimeError, "boom from subprocess"
+      end
+    end.new
+    runner = ClaudeRunner.new(@task, subprocess: boom, clock: @clock)
+
+    err = assert_raises(RuntimeError) { runner.call }
+    assert_equal "boom from subprocess", err.message
+
+    @task.reload
+    assert_equal "failed", @task.status
+    assert_match(/unexpected error: RuntimeError: boom from subprocess/, @task.error)
+    assert_predicate @task.finished_at, :present?
+  end
+
+  test "log writer write error marks task failed instead of orphaning in running" do
+    failing_logs = Class.new do
+      def path_for(id) = "/nope/#{id}.log"
+      def write_header(path, _) = raise(LogWriter::WriteError, "cannot write log header to #{path}: denied")
+      def append(*) = nil
+    end.new
+    runner = ClaudeRunner.new(@task, subprocess: FakeClaude.new, log_writer: failing_logs, clock: @clock)
+
+    assert_raises(LogWriter::WriteError) { runner.call }
+
+    @task.reload
+    assert_equal "failed", @task.status
+    assert_match(/LogWriter::WriteError/, @task.error)
+  end
+
   private
 
   def log_path

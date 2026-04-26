@@ -5,6 +5,8 @@ require "support/fake_claude"
 # show page -> verify retry/cancel buttons appear conditionally on status.
 # Uses rack_test (no real browser) so it runs cross-platform without driver setup.
 class TaskWorkflowTest < ApplicationSystemTestCase
+  include ActiveJob::TestHelper
+
   setup do
     @repo = Dir.mktmpdir("orch-system-")
     ClaudeRunner.subprocess_override = FakeClaude.new(scripts: { /.*/ => [ "ok\n" ] })
@@ -13,6 +15,7 @@ class TaskWorkflowTest < ApplicationSystemTestCase
   teardown do
     ClaudeRunner.subprocess_override = nil
     FileUtils.remove_entry(@repo) if File.exist?(@repo)
+    AiTask.pluck(:log_path).compact.each { |p| FileUtils.rm_f(p) }
   end
 
   test "user submits a task and sees it on the list" do
@@ -64,5 +67,28 @@ class TaskWorkflowTest < ApplicationSystemTestCase
     assert_text "hello log"
   ensure
     FileUtils.rm_f(Rails.root.join("tmp", "#{task.id}.log")) if task
+  end
+
+  test "full lifecycle: submit through browser, worker runs, status flips to done, log is visible" do
+    ClaudeRunner.subprocess_override = FakeClaude.new(scripts: {
+      /.*/ => { lines: [ "starting\n", "working...\n", "all done\n" ], exit: 0 }
+    })
+
+    visit new_task_path
+    fill_in "ai_task[repo_path]", with: @repo
+    fill_in "ai_task[prompt]",    with: "ship feature x"
+    click_button "Queue"
+
+    task = AiTask.last
+    assert_equal "ship feature x", task.prompt
+    assert_equal AiTask::PENDING, task.status
+
+    perform_enqueued_jobs
+    visit task_path(task)
+    assert_text AiTask::DONE
+
+    click_link "View log"
+    assert_text "starting"
+    assert_text "all done"
   end
 end

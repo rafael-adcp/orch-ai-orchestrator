@@ -18,9 +18,25 @@ class ClaudeRunner
     start
     result, limit_hit = stream
     finalize(result.exit_status, limit_hit)
+  rescue Claude::UsageLimitError, ActiveRecord::RecordNotFound
+    # UsageLimitError is the runner's contract with Solid Queue's retry_on;
+    # RecordNotFound is handled by the job's discard_on. Re-raise untouched.
+    raise
+  rescue StandardError => e
+    # Anything else (DB hiccup, log I/O, bug) would otherwise leave the task
+    # orphaned in :running. Tell-don't-ask: the runner owns terminal state.
+    mark_failed_safely("unexpected error: #{e.class}: #{e.message}")
+    raise
   end
 
   private
+
+  def mark_failed_safely(message)
+    return unless @task.can_transition?(AiTask::FAILED)
+    @task.mark_failed!(error: message, now: @clock.current)
+  rescue StandardError
+    # If we can't even record the failure, don't mask the original error.
+  end
 
   def start
     path = @logs.path_for(@task.id)
