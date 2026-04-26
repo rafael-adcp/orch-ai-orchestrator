@@ -71,7 +71,7 @@ class TaskWorkflowTest < ApplicationSystemTestCase
 
   test "full lifecycle: submit through browser, worker runs, status flips to done, log is visible" do
     ClaudeRunner.subprocess_override = FakeClaude.new(scripts: {
-      /.*/ => { lines: [ "starting\n", "working...\n", "all done\n" ], exit: 0 }
+      /.*/ => { lines: [ "starting\n", "working...\n", "all done\n", "ORCH_RESULT: SUCCESS\n" ], exit: 0 }
     })
 
     visit new_task_path

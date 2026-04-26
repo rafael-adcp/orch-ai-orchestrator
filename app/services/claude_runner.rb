@@ -9,15 +9,16 @@ class ClaudeRunner
                        command_builder: ClaudeCommand.new,
                        log_writer: LogWriter.new,
                        limit_detector: LimitDetector.new,
+                       success_detector: SuccessDetector.new,
                        clock: Time)
-    @task, @sub, @build, @logs, @limits, @clock =
-      task, subprocess, command_builder, log_writer, limit_detector, clock
+    @task, @sub, @build, @logs, @limits, @success, @clock =
+      task, subprocess, command_builder, log_writer, limit_detector, success_detector, clock
   end
 
   def call
     start
     result, limit_hit = stream
-    finalize(result.exit_status, limit_hit)
+    finalize(result.exit_status, limit_hit, @success.result)
   rescue Claude::UsageLimitError, ActiveRecord::RecordNotFound
     # UsageLimitError is the runner's contract with Solid Queue's retry_on;
     # RecordNotFound is handled by the job's discard_on. Re-raise untouched.
@@ -53,17 +54,35 @@ class ClaudeRunner
 
   def consume(line)
     @logs.append(@task.log_path, line)
+    @success.consume(line)
     @limits.detect(line)
   end
 
-  def finalize(exit_status, limit_hit)
+  # Terminal state is decided by, in order:
+  #   1. usage limit phrase  -> :failed + raise (Solid Queue retries)
+  #   2. non-zero exit code  -> :failed
+  #   3. BLOCKED sentinel    -> :failed (Claude told us it stopped early)
+  #   4. SUCCESS sentinel    -> :done
+  #   5. nothing of the above (exit 0, no sentinel) -> :needs_review
+  #
+  # Case 5 is the whole point of the sentinel: `claude -p` exits 0 even when
+  # it hits --max-turns, asks a clarifying question, or no-ops. Without a
+  # success marker we cannot honestly call the task done.
+  def finalize(exit_status, limit_hit, success_result)
     if limit_hit
       @task.mark_failed!(error: "claude usage limit hit: #{limit_hit}", now: @clock.current)
       raise Claude::UsageLimitError, limit_hit.to_s
-    elsif exit_status.zero?
+    elsif exit_status.nonzero?
+      @task.mark_failed!(error: "exit code #{exit_status}", now: @clock.current)
+    elsif success_result&.blocked?
+      @task.mark_failed!(error: "blocked: #{success_result.reason}", now: @clock.current)
+    elsif success_result&.success?
       @task.mark_done!(now: @clock.current)
     else
-      @task.mark_failed!(error: "exit code #{exit_status}", now: @clock.current)
+      @task.mark_needs_review!(
+        reason: "no completion sentinel printed (exit 0); cannot confirm task was completed",
+        now: @clock.current
+      )
     end
   end
 end

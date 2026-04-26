@@ -1,19 +1,24 @@
 class AiTask < ApplicationRecord
   class InvalidTransition < StandardError; end
 
-  STATUSES  = %w[pending running done failed cancelled].freeze
+  STATUSES  = %w[pending running done failed cancelled needs_review].freeze
   PROVIDERS = %w[claude].freeze # add "copilot" etc. as support lands
 
-  PENDING, RUNNING, DONE, FAILED, CANCELLED = STATUSES
+  PENDING, RUNNING, DONE, FAILED, CANCELLED, NEEDS_REVIEW = STATUSES
 
   # Allowed source states per transition. Tightens the model so callers
   # can't silently flip a finished/cancelled task back into the pipeline.
+  #
+  # NEEDS_REVIEW is reached when the subprocess exited cleanly but did not
+  # print the completion sentinel — i.e. we cannot tell whether the work
+  # was actually done. Triage manually, then retry or cancel.
   TRANSITIONS = {
-    RUNNING   => [ PENDING ],
-    DONE      => [ RUNNING ],
-    FAILED    => [ PENDING, RUNNING ], # failures can fire from either
-    CANCELLED => [ PENDING ],
-    PENDING   => [ FAILED ]            # only retry-from-failed re-enters pending
+    RUNNING      => [ PENDING ],
+    DONE         => [ RUNNING ],
+    FAILED       => [ PENDING, RUNNING ], # failures can fire from either
+    CANCELLED    => [ PENDING, NEEDS_REVIEW ],
+    NEEDS_REVIEW => [ RUNNING ],
+    PENDING      => [ FAILED, NEEDS_REVIEW ] # retry from failed or ambiguous runs
   }.freeze
 
   validates :status,    inclusion: { in: STATUSES }
@@ -41,6 +46,10 @@ class AiTask < ApplicationRecord
 
   def mark_failed!(error:, now:)
     transition_to!(FAILED, error: error, finished_at: now)
+  end
+
+  def mark_needs_review!(reason:, now:)
+    transition_to!(NEEDS_REVIEW, error: reason, finished_at: now)
   end
 
   def retry!

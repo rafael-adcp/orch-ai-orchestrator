@@ -17,7 +17,7 @@ class ClaudeRunnerTest < ActiveSupport::TestCase
   end
 
   test "success sets status done and writes log" do
-    fake = FakeClaude.new(scripts: { /.*/ => { lines: [ "hello\n" ], exit: 0 } })
+    fake = FakeClaude.new(scripts: { /.*/ => { lines: [ "hello\n", "ORCH_RESULT: SUCCESS\n" ], exit: 0 } })
     runner = ClaudeRunner.new(@task, subprocess: fake, clock: @clock)
     runner.call
 
@@ -52,7 +52,7 @@ class ClaudeRunnerTest < ActiveSupport::TestCase
   end
 
   test "passes correct argv and cwd to subprocess" do
-    builder = ClaudeCommand.new(bin: "claude", flags: [ "-p" ], model: "sonnet", max_turns: 5)
+    builder = ClaudeCommand.new(bin: "claude", flags: [ "-p" ], model: "sonnet", max_turns: 5, sentinel: false)
     fake = FakeClaude.new(scripts: { /.*/ => { lines: [], exit: 0 } })
     runner = ClaudeRunner.new(@task, subprocess: fake, command_builder: builder, clock: @clock)
     runner.call
@@ -65,7 +65,7 @@ class ClaudeRunnerTest < ActiveSupport::TestCase
   end
 
   test "log file contains header and streamed lines" do
-    fake = FakeClaude.new(scripts: { /.*/ => { lines: [ "line 1\n", "line 2\n" ], exit: 0 } })
+    fake = FakeClaude.new(scripts: { /.*/ => { lines: [ "line 1\n", "line 2\n", "ORCH_RESULT: SUCCESS\n" ], exit: 0 } })
     runner = ClaudeRunner.new(@task, subprocess: fake, clock: @clock)
     runner.call
 
@@ -105,6 +105,55 @@ class ClaudeRunnerTest < ActiveSupport::TestCase
     @task.reload
     assert_equal "failed", @task.status
     assert_match(/LogWriter::WriteError/, @task.error)
+  end
+
+  test "exit 0 with no sentinel lands in needs_review" do
+    fake = FakeClaude.new(scripts: { /.*/ => { lines: [ "did some thinking\n" ], exit: 0 } })
+    runner = ClaudeRunner.new(@task, subprocess: fake, clock: @clock)
+    runner.call
+
+    @task.reload
+    assert_equal "needs_review", @task.status
+    assert_match(/no completion sentinel/i, @task.error)
+    assert_predicate @task.finished_at, :present?
+  end
+
+  test "BLOCKED sentinel marks task failed with reason" do
+    fake = FakeClaude.new(scripts: {
+      /.*/ => { lines: [ "tried things\n", "ORCH_RESULT: BLOCKED: missing test fixtures\n" ], exit: 0 }
+    })
+    runner = ClaudeRunner.new(@task, subprocess: fake, clock: @clock)
+    runner.call
+
+    @task.reload
+    assert_equal "failed", @task.status
+    assert_match(/blocked: missing test fixtures/i, @task.error)
+  end
+
+  test "later sentinel wins if both kinds appear" do
+    # Defensive: if Claude prints SUCCESS then later realises it was wrong
+    # and prints BLOCKED, trust the last word.
+    fake = FakeClaude.new(scripts: {
+      /.*/ => { lines: [ "ORCH_RESULT: SUCCESS\n", "wait, ORCH_RESULT: BLOCKED: tests fail\n" ], exit: 0 }
+    })
+    runner = ClaudeRunner.new(@task, subprocess: fake, clock: @clock)
+    runner.call
+
+    @task.reload
+    assert_equal "failed", @task.status
+    assert_match(/tests fail/, @task.error)
+  end
+
+  test "non-zero exit beats sentinel (claude crashed after declaring success)" do
+    fake = FakeClaude.new(scripts: {
+      /.*/ => { lines: [ "ORCH_RESULT: SUCCESS\n" ], exit: 1 }
+    })
+    runner = ClaudeRunner.new(@task, subprocess: fake, clock: @clock)
+    runner.call
+
+    @task.reload
+    assert_equal "failed", @task.status
+    assert_match(/exit code 1/, @task.error)
   end
 
   private

@@ -37,7 +37,7 @@ class FailedRetrySucceedsTest < ActionDispatch::IntegrationTest
 
     # Swap in a healthy subprocess for the second attempt.
     ClaudeRunner.subprocess_override =
-      FakeClaude.new(scripts: { /.*/ => { lines: [ "all good\n" ], exit: 0 } })
+      FakeClaude.new(scripts: { /.*/ => { lines: [ "all good\n", "ORCH_RESULT: SUCCESS\n" ], exit: 0 } })
 
     post retry_task_path(task)
     assert_redirected_to task_path(task)

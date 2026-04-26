@@ -13,7 +13,15 @@ class ClaudeCommandTest < ActiveSupport::TestCase
     # resolve_bin tests below lock the Windows behavior in detail.
     expected_bin = Gem.win_platform? ? %r{[/\\]claude\.(?:exe|cmd|bat)\z}i : /\Aclaude\z/
     assert_match(expected_bin, argv.first)
-    assert_equal [ "-p", "--model", "sonnet", "--max-turns", "30", "do x" ], argv.drop(1)
+    assert_equal [ "-p", "--model", "sonnet", "--max-turns", "30" ], argv[1..-2]
+    # Last arg is the prompt with the sentinel footer appended.
+    assert argv.last.start_with?("do x"), "prompt should be preserved at the start"
+    assert_match(/ORCH_RESULT:\s*SUCCESS/, argv.last)
+  end
+
+  test "sentinel footer can be disabled" do
+    cmd = ClaudeCommand.new(bin: "claude", flags: [], model: "sonnet", max_turns: 1, sentinel: false)
+    assert_equal "do x", cmd.build(task).last
   end
 
   test "task model overrides default model" do
@@ -24,7 +32,7 @@ class ClaudeCommandTest < ActiveSupport::TestCase
   end
 
   test "wraps inside docker_cmd when set" do
-    cmd = ClaudeCommand.new(bin: "claude", flags: [ "-p" ], model: "sonnet", max_turns: 5)
+    cmd = ClaudeCommand.new(bin: "claude", flags: [ "-p" ], model: "sonnet", max_turns: 5, sentinel: false)
     argv = cmd.build(task(docker_cmd: "docker run --rm img"))
     assert_equal [ "docker", "run", "--rm", "img" ], argv.first(4)
     inner = argv.last

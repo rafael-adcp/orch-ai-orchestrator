@@ -12,7 +12,7 @@ class RunnerCompletesTaskTest < ActionDispatch::IntegrationTest
     FileUtils.mkdir_p(@log_dir)
 
     @fake = FakeClaude.new(scripts: {
-      /say hi/ => { lines: [ "hello from claude", "all done" ], exit: 0 }
+      /say hi/ => { lines: [ "hello from claude", "all done", "ORCH_RESULT: SUCCESS" ], exit: 0 }
     })
     ClaudeRunner.subprocess_override = @fake
   end

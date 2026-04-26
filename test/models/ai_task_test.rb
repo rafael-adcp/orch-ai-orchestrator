@@ -76,4 +76,19 @@ class AiTaskTest < ActiveSupport::TestCase
     t.mark_done!(now: Time.current)
     assert_equal AiTask::DONE, t.status
   end
+
+  test "running -> needs_review allowed and retryable" do
+    t = AiTask.create!(valid_attrs)
+    t.mark_running!(now: Time.current, log_path: "/tmp/x.log")
+    t.mark_needs_review!(reason: "no sentinel", now: Time.current)
+    assert_equal AiTask::NEEDS_REVIEW, t.status
+    assert_equal "no sentinel", t.error
+    assert t.can_transition?(AiTask::PENDING)
+    assert t.can_transition?(AiTask::CANCELLED)
+  end
+
+  test "mark_needs_review! not allowed from pending" do
+    t = AiTask.create!(valid_attrs(status: AiTask::PENDING))
+    assert_raises(AiTask::InvalidTransition) { t.mark_needs_review!(reason: "x", now: Time.current) }
+  end
 end

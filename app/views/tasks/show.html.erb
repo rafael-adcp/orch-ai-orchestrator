@@ -11,12 +11,12 @@
           class: "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50" %>
     <%= link_to "View log", log_task_path(@task),
           class: "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50" %>
-    <% if @task.status == AiTask::FAILED %>
+    <% if @task.status == AiTask::FAILED || @task.status == AiTask::NEEDS_REVIEW %>
       <%= button_to "Retry", retry_task_path(@task), method: :post,
             form: { class: "inline" },
             class: "rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700" %>
     <% end %>
-    <% if @task.status == AiTask::PENDING %>
+    <% if @task.status == AiTask::PENDING || @task.status == AiTask::NEEDS_REVIEW %>
       <%= button_to "Cancel", cancel_task_path(@task), method: :post,
             form: { class: "inline" },
             class: "rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700" %>
