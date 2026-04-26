@@ -23,14 +23,13 @@ class TasksController < ApplicationController
 
   def retry
     task = AiTask.find(params[:id])
-    task.update!(status: "pending", error: nil, started_at: nil, finished_at: nil)
-    task.enqueue!
+    task.retry!
     redirect_to task_path(task), notice: "re-queued"
   end
 
   def cancel
     task = AiTask.find(params[:id])
-    task.update!(status: "cancelled") if task.status == "pending"
+    task.cancel!
     redirect_to task_path(task), notice: "cancelled"
   end
 

@@ -5,7 +5,6 @@ class RunClaudeJob < ApplicationJob
   limits_concurrency to: 1, key: ->(task_id) { AiTask.find(task_id).repo_path }
 
   retry_on Claude::UsageLimitError, wait: 30.minutes, attempts: 5
-  retry_on Claude::TimeoutError,    wait: 1.minute,   attempts: 2
   discard_on ActiveRecord::RecordNotFound
 
   def perform(task_id)

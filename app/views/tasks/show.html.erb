@@ -19,10 +19,10 @@
   <div class="space-x-2">
     <%= link_to "View log", log_task_path(@task), class: "underline" %>
     <%= link_to "All tasks", tasks_path, class: "underline" %>
-    <% if @task.status == "failed" %>
+    <% if @task.status == AiTask::FAILED %>
       <%= button_to "Retry", retry_task_path(@task), method: :post, class: "px-2 py-1 border rounded" %>
     <% end %>
-    <% if @task.status == "pending" %>
+    <% if @task.status == AiTask::PENDING %>
       <%= button_to "Cancel", cancel_task_path(@task), method: :post, class: "px-2 py-1 border rounded" %>
     <% end %>
   </div>

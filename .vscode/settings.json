@@ -1,0 +1,25 @@
+{
+  "chat.tools.terminal.autoApprove": {
+    "/^ruby bin\\/rails( |$)/": true,
+    "/^bin\\/rails( |$)/": true,
+    "/^bundle( |$)/": true,
+    "/^bundle exec( |$)/": true,
+    "/^gem (list|env|which)( |$)/": true,
+    "/^git (status|log|diff|show|ls-files|branch|add|commit|check-ignore|rev-parse)( |$)/": true,
+    "/^Get-(ChildItem|Content|Process|CimInstance)( |$)/": true,
+    "/^Select-(String|Object)( |$)/": true,
+    "/^Test-Path( |$)/": true,
+    "/^Measure-Object( |$)/": true,
+    "/^Format-(Table|List)( |$)/": true,
+    "/^Group-Object( |$)/": true,
+    "/^Sort-Object( |$)/": true,
+    "/^Where-Object( |$)/": true,
+    "/^foreach( |$)/": true,
+    "/^Write-(Output|Host)( |$)/": true,
+    "/^New-Item( |$)/": true,
+    "/^Out-(Null|String)( |$)/": true,
+    "ruby": true,
+    "rake": true,
+    "where.exe": true
+  }
+}

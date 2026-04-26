@@ -12,32 +12,31 @@ class ClaudeRunner
   end
 
   def initialize(task, subprocess: self.class.subprocess_override || Subprocess.new,
-                       command_builder: ClaudeCommand.new, clock: Time)
-    @task  = task
-    @sub   = subprocess
-    @build = command_builder
-    @clock = clock
+                       command_builder: ClaudeCommand.new,
+                       log_writer: LogWriter.new,
+                       clock: Time)
+    @task, @sub, @build, @logs, @clock = task, subprocess, command_builder, log_writer, clock
   end
 
   def call
-    mark_running
+    start
     result, limit_hit = stream
     finalize(result.exit_status, limit_hit)
   end
 
   private
 
-  def mark_running
-    @task.update!(status: "running", started_at: @clock.current, log_path: log_file)
-    FileUtils.mkdir_p(File.dirname(log_file))
-    File.write(log_file, header)
+  def start
+    path = @logs.path_for(@task.id)
+    @task.mark_running!(now: @clock.current, log_path: path)
+    @logs.write_header(path, "===== task #{@task.id} =====\n")
   end
 
   def stream
     limit_hit = nil
     argv = @build.build(@task)
     result = @sub.run(argv, cwd: @task.repo_path, on_line: ->(line) {
-      File.open(log_file, "a") { |f| f.write(line); f.flush }
+      @logs.append(@task.log_path, line)
       limit_hit ||= detect_limit(line)
     })
     [ result, limit_hit ]
@@ -45,32 +44,16 @@ class ClaudeRunner
 
   def finalize(exit_status, limit_hit)
     if limit_hit
-      fail_task("claude usage limit hit: #{limit_hit}")
+      @task.mark_failed!(error: "claude usage limit hit: #{limit_hit}", now: @clock.current)
       raise Claude::UsageLimitError, limit_hit
     elsif exit_status.zero?
-      done_task
+      @task.mark_done!(now: @clock.current)
     else
-      fail_task("exit code #{exit_status}")
+      @task.mark_failed!(error: "exit code #{exit_status}", now: @clock.current)
     end
   end
 
   def detect_limit(line)
     LIMIT_PATTERNS.find { |re| line.match?(re) }&.source
-  end
-
-  def fail_task(msg)
-    @task.update!(status: "failed", error: msg, finished_at: @clock.current)
-  end
-
-  def done_task
-    @task.update!(status: "done", finished_at: @clock.current)
-  end
-
-  def log_file
-    @log_file ||= Rails.root.join("log", "tasks", "#{@task.id}.log").to_s
-  end
-
-  def header
-    "===== task #{@task.id} =====\n"
   end
 end
