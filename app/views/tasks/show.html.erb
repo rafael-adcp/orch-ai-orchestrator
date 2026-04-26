@@ -1,0 +1,29 @@
+<div class="max-w-3xl mx-auto p-6">
+  <% if notice %><p class="mb-4 text-green-700"><%= notice %></p><% end %>
+
+  <h1 class="text-2xl font-semibold mb-2">Task <span class="font-mono"><%= @task.id %></span></h1>
+
+  <dl class="grid grid-cols-[8rem_1fr] gap-y-1 text-sm mb-4">
+    <dt class="text-gray-500">Status</dt>     <dd><%= @task.status %></dd>
+    <dt class="text-gray-500">Repo</dt>       <dd class="font-mono"><%= @task.repo_path %></dd>
+    <dt class="text-gray-500">Prompt</dt>     <dd class="whitespace-pre-wrap"><%= @task.prompt %></dd>
+    <dt class="text-gray-500">Branch</dt>     <dd><%= @task.branch %></dd>
+    <dt class="text-gray-500">Model</dt>      <dd><%= @task.model %></dd>
+    <dt class="text-gray-500">Started</dt>    <dd><%= @task.started_at %></dd>
+    <dt class="text-gray-500">Finished</dt>   <dd><%= @task.finished_at %></dd>
+    <% if @task.error.present? %>
+      <dt class="text-gray-500">Error</dt>    <dd class="text-red-700"><%= @task.error %></dd>
+    <% end %>
+  </dl>
+
+  <div class="space-x-2">
+    <%= link_to "View log", log_task_path(@task), class: "underline" %>
+    <%= link_to "All tasks", tasks_path, class: "underline" %>
+    <% if @task.status == "failed" %>
+      <%= button_to "Retry", retry_task_path(@task), method: :post, class: "px-2 py-1 border rounded" %>
+    <% end %>
+    <% if @task.status == "pending" %>
+      <%= button_to "Cancel", cancel_task_path(@task), method: :post, class: "px-2 py-1 border rounded" %>
+    <% end %>
+  </div>
+</div>

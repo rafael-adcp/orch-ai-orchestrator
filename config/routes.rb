@@ -11,4 +11,14 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "posts#index"
+  root "tasks#index"
+  resources :tasks, only: %i[index new create show] do
+    member do
+      post :retry
+      post :cancel
+      get :log
+    end
+  end
+
+  mount MissionControl::Jobs::Engine, at: "/jobs"
 end
