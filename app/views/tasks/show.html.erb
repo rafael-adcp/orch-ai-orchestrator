@@ -1,29 +1,50 @@
-<div class="max-w-3xl mx-auto p-6">
-  <% if notice %><p class="mb-4 text-green-700"><%= notice %></p><% end %>
-
-  <h1 class="text-2xl font-semibold mb-2">Task <span class="font-mono"><%= @task.id %></span></h1>
-
-  <dl class="grid grid-cols-[8rem_1fr] gap-y-1 text-sm mb-4">
-    <dt class="text-gray-500">Status</dt>     <dd><%= @task.status %></dd>
-    <dt class="text-gray-500">Repo</dt>       <dd class="font-mono"><%= @task.repo_path %></dd>
-    <dt class="text-gray-500">Prompt</dt>     <dd class="whitespace-pre-wrap"><%= @task.prompt %></dd>
-    <dt class="text-gray-500">Branch</dt>     <dd><%= @task.branch %></dd>
-    <dt class="text-gray-500">Model</dt>      <dd><%= @task.model %></dd>
-    <dt class="text-gray-500">Started</dt>    <dd><%= @task.started_at %></dd>
-    <dt class="text-gray-500">Finished</dt>   <dd><%= @task.finished_at %></dd>
-    <% if @task.error.present? %>
-      <dt class="text-gray-500">Error</dt>    <dd class="text-red-700"><%= @task.error %></dd>
-    <% end %>
-  </dl>
-
-  <div class="space-x-2">
-    <%= link_to "View log", log_task_path(@task), class: "underline" %>
-    <%= link_to "All tasks", tasks_path, class: "underline" %>
+<div class="mb-6 flex items-start justify-between gap-4">
+  <div>
+    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Task</p>
+    <h1 class="mt-1 flex items-center gap-3 text-2xl font-semibold tracking-tight">
+      <span class="font-mono"><%= @task.id %></span>
+      <%= status_badge(@task.status) %>
+    </h1>
+  </div>
+  <div class="flex items-center gap-2">
+    <%= link_to "All tasks", tasks_path,
+          class: "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50" %>
+    <%= link_to "View log", log_task_path(@task),
+          class: "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50" %>
     <% if @task.status == AiTask::FAILED %>
-      <%= button_to "Retry", retry_task_path(@task), method: :post, class: "px-2 py-1 border rounded" %>
+      <%= button_to "Retry", retry_task_path(@task), method: :post,
+            form: { class: "inline" },
+            class: "rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700" %>
     <% end %>
     <% if @task.status == AiTask::PENDING %>
-      <%= button_to "Cancel", cancel_task_path(@task), method: :post, class: "px-2 py-1 border rounded" %>
+      <%= button_to "Cancel", cancel_task_path(@task), method: :post,
+            form: { class: "inline" },
+            class: "rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700" %>
     <% end %>
   </div>
 </div>
+
+<div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+  <dl class="divide-y divide-slate-100 text-sm">
+    <% [
+         [ "Repo",     content_tag(:span, @task.repo_path, class: "font-mono break-all") ],
+         [ "Prompt",   content_tag(:p, @task.prompt, class: "whitespace-pre-wrap text-slate-800") ],
+         [ "Branch",   @task.branch.presence || content_tag(:span, "—", class: "text-slate-400") ],
+         [ "Model",    @task.model.presence  || content_tag(:span, "default", class: "text-slate-400") ],
+         [ "Started",  @task.started_at  ? l(@task.started_at,  format: :short) : content_tag(:span, "—", class: "text-slate-400") ],
+         [ "Finished", @task.finished_at ? l(@task.finished_at, format: :short) : content_tag(:span, "—", class: "text-slate-400") ]
+       ].each do |label, value| %>
+      <div class="grid grid-cols-[10rem_1fr] gap-4 px-6 py-3">
+        <dt class="text-slate-500"><%= label %></dt>
+        <dd class="text-slate-900"><%= value %></dd>
+      </div>
+    <% end %>
+  </dl>
+</div>
+
+<% if @task.error.present? %>
+  <div class="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-4">
+    <p class="text-sm font-medium text-rose-900">Error</p>
+    <p class="mt-1 whitespace-pre-wrap text-sm text-rose-800"><%= @task.error %></p>
+  </div>
+<% end %>

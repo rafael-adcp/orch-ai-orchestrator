@@ -23,8 +23,27 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body>
-    <main class="container mx-auto mt-28 px-5 flex">
+  <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+    <header class="border-b border-slate-200 bg-white">
+      <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+        <%= link_to tasks_path, class: "flex items-center gap-2 font-semibold tracking-tight" do %>
+          <span class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-white text-xs font-bold">OR</span>
+          <span>Orchestrator</span>
+        <% end %>
+        <nav class="flex items-center gap-4 text-sm">
+          <%= link_to "Tasks", tasks_path, class: "text-slate-600 hover:text-slate-900" %>
+          <%= link_to "Jobs", "/jobs", class: "text-slate-600 hover:text-slate-900" %>
+          <%= link_to "New task", new_task_path, class: "rounded-md bg-slate-900 px-3 py-1.5 text-white text-xs font-medium hover:bg-slate-700" %>
+        </nav>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-6 py-8">
+      <% if notice %>
+        <div class="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+          <%= notice %>
+        </div>
+      <% end %>
       <%= yield %>
     </main>
   </body>

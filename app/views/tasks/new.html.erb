@@ -1,40 +1,58 @@
-<div class="max-w-2xl mx-auto p-6">
-  <h1 class="text-2xl font-semibold mb-4">New task</h1>
+<div class="mx-auto max-w-2xl">
+  <div class="mb-6">
+    <h1 class="text-2xl font-semibold tracking-tight">New task</h1>
+    <p class="mt-1 text-sm text-slate-500">Queue a Claude run against a local repository.</p>
+  </div>
 
-  <%= form_with model: @task, url: tasks_path, local: true, html: { class: "space-y-4" } do |f| %>
-    <% if @task.errors.any? %>
-      <div class="text-red-700 text-sm">
-        <ul><% @task.errors.full_messages.each do |m| %><li><%= m %></li><% end %></ul>
+  <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <%= form_with model: @task, url: tasks_path, local: true, html: { class: "space-y-5" } do |f| %>
+      <% if @task.errors.any? %>
+        <div class="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <p class="font-medium">Please fix the following:</p>
+          <ul class="mt-1 list-disc pl-5">
+            <% @task.errors.full_messages.each do |m| %><li><%= m %></li><% end %>
+          </ul>
+        </div>
+      <% end %>
+
+      <% input_classes = "mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500" %>
+      <% label_classes = "block text-sm font-medium text-slate-700" %>
+
+      <div>
+        <%= f.label :repo_path, class: label_classes %>
+        <%= f.text_field :repo_path, class: "#{input_classes} font-mono", placeholder: "C:\\path\\to\\repo" %>
+      </div>
+
+      <div>
+        <%= f.label :prompt, class: label_classes %>
+        <%= f.text_area :prompt, rows: 6, class: input_classes, placeholder: "Describe the change you want Claude to make…" %>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <%= f.label :branch, class: label_classes %>
+          <%= f.text_field :branch, class: input_classes, placeholder: "optional" %>
+        </div>
+        <div>
+          <%= f.label :model, class: label_classes %>
+          <%= f.text_field :model, class: input_classes, placeholder: "sonnet" %>
+        </div>
+        <div class="sm:col-span-2">
+          <%= f.label :docker_cmd, class: label_classes %>
+          <%= f.text_field :docker_cmd, class: "#{input_classes} font-mono", placeholder: "optional: docker run --rm img" %>
+        </div>
+        <div>
+          <%= f.label :priority, class: label_classes %>
+          <%= f.number_field :priority, value: @task.priority || 0, class: input_classes %>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-3 border-t border-slate-100 pt-5">
+        <%= link_to "Cancel", tasks_path,
+              class: "rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" %>
+        <%= f.submit "Queue task",
+              class: "rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-700" %>
       </div>
     <% end %>
-
-    <div>
-      <%= f.label :repo_path, class: "block text-sm font-medium" %>
-      <%= f.text_field :repo_path, class: "w-full border rounded px-2 py-1 font-mono" %>
-    </div>
-    <div>
-      <%= f.label :prompt, class: "block text-sm font-medium" %>
-      <%= f.text_area :prompt, rows: 6, class: "w-full border rounded px-2 py-1" %>
-    </div>
-    <div class="grid grid-cols-2 gap-4">
-      <div>
-        <%= f.label :branch, class: "block text-sm font-medium" %>
-        <%= f.text_field :branch, class: "w-full border rounded px-2 py-1" %>
-      </div>
-      <div>
-        <%= f.label :model, class: "block text-sm font-medium" %>
-        <%= f.text_field :model, class: "w-full border rounded px-2 py-1" %>
-      </div>
-      <div>
-        <%= f.label :docker_cmd, class: "block text-sm font-medium" %>
-        <%= f.text_field :docker_cmd, class: "w-full border rounded px-2 py-1 font-mono" %>
-      </div>
-      <div>
-        <%= f.label :priority, class: "block text-sm font-medium" %>
-        <%= f.number_field :priority, value: @task.priority || 0, class: "w-full border rounded px-2 py-1" %>
-      </div>
-    </div>
-
-    <%= f.submit "Queue task", class: "px-4 py-2 bg-black text-white rounded" %>
-  <% end %>
+  </div>
 </div>

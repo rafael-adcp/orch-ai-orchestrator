@@ -1,31 +1,44 @@
-<div class="max-w-5xl mx-auto p-6">
-  <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-semibold">Tasks</h1>
-    <%= link_to "New task", new_task_path, class: "px-3 py-1 bg-black text-white rounded" %>
+<div class="mb-6 flex items-end justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Tasks</h1>
+    <p class="mt-1 text-sm text-slate-500">The 100 most recent runs across all repos.</p>
   </div>
+  <%= link_to "New task", new_task_path,
+        class: "rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-700" %>
+</div>
 
-  <% if notice %><p class="mb-4 text-green-700"><%= notice %></p><% end %>
-
-  <table class="w-full text-sm">
-    <thead class="text-left border-b">
-      <tr>
-        <th class="py-2">ID</th>
-        <th>Status</th>
-        <th>Repo</th>
-        <th>Prompt</th>
-        <th>Created</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% @tasks.each do |t| %>
-        <tr class="border-b">
-          <td class="py-2 font-mono"><%= link_to t.id, task_path(t), class: "underline" %></td>
-          <td><%= t.status %></td>
-          <td class="font-mono text-xs"><%= t.repo_path %></td>
-          <td class="truncate max-w-md"><%= t.prompt %></td>
-          <td><%= t.created_at.to_fs(:short) if t.created_at %></td>
+<div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+  <% if @tasks.empty? %>
+    <div class="px-6 py-16 text-center">
+      <p class="text-sm font-medium text-slate-900">No tasks yet</p>
+      <p class="mt-1 text-sm text-slate-500">Queue your first run to see it appear here.</p>
+      <%= link_to "New task", new_task_path,
+            class: "mt-4 inline-flex rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700" %>
+    </div>
+  <% else %>
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-4 py-3 text-left">ID</th>
+          <th class="px-4 py-3 text-left">Status</th>
+          <th class="px-4 py-3 text-left">Repo</th>
+          <th class="px-4 py-3 text-left">Prompt</th>
+          <th class="px-4 py-3 text-left">Created</th>
         </tr>
-      <% end %>
-    </tbody>
-  </table>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        <% @tasks.each do |t| %>
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3 font-mono text-xs">
+              <%= link_to t.id, task_path(t), class: "text-slate-900 hover:underline" %>
+            </td>
+            <td class="px-4 py-3"><%= status_badge(t.status) %></td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-600 truncate max-w-xs"><%= t.repo_path %></td>
+            <td class="px-4 py-3 text-slate-700 truncate max-w-md"><%= t.prompt %></td>
+            <td class="px-4 py-3 text-slate-500"><%= t.created_at.to_fs(:short) if t.created_at %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
 </div>
