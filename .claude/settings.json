@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bin/rails test)",
+      "Bash(bin/rails test *)",
+      "Bash(bin/rails test:system)",
+      "Bash(bin/rails routes)",
+      "Bash(bin/rails routes *)",
+      "Bash(bin/rails db:migrate:status)",
+      "Bash(bin/rails about)",
+      "Bash(bin/rubocop)",
+      "Bash(bin/rubocop *)",
+      "Bash(bundle exec rubocop)",
+      "Bash(bundle exec rubocop *)",
+      "Bash(bundle exec rails test)",
+      "Bash(bundle exec rails test *)",
+      "Bash(bundle exec rails test:system)",
+      "Bash(bundle list)",
+      "Bash(bundle show *)",
+      "Bash(bundle outdated)",
+      "Bash(bundle outdated *)",
+      "Bash(bundle info *)",
+      "Bash(git add *)",
+      "Bash(git commit -m *)",
+      "Bash(git push)",
+      "Bash(git pull)",
+      "Bash(git status)",
+      "Bash(git log)",
+      "Bash(git diff)",
+      "Bash(git branch)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git stash)",
+      "Bash(git stash pop)",
+      "Bash(git stash list)",
+      "Bash(git stash show *)"
+    ]
+  }
+}
