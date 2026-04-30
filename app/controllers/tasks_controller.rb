@@ -49,16 +49,6 @@ class TasksController < ApplicationController
                 notice: "purged #{report.deleted_count} task(s); skipped #{report.skipped_count}"
   end
 
-  def bulk_destroy
-    ids = Array(params[:ids]).reject(&:blank?)
-    deleted, skipped = 0, 0
-    AiTask.where(id: ids).find_each do |task|
-      TaskPurge.delete(task).deleted? ? deleted += 1 : skipped += 1
-    end
-    redirect_to tasks_path,
-                notice: "deleted #{deleted} task(s); skipped #{skipped} (running tasks aren't deletable)"
-  end
-
   def log
     task = AiTask.find(params[:id])
     render plain: task.log_text || "(no log yet)"
