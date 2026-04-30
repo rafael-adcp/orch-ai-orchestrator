@@ -20,12 +20,12 @@ class TasksControllerTest < ActionDispatch::IntegrationTest
   test "create permits only the documented attributes" do
     post tasks_path, params: { ai_task: {
       repo_path:  @repo, prompt: "x",
-      status:     "done",       # forbidden — must default to pending
+      outcome:    "done",       # forbidden — must default to in_flight
       log_path:   "/etc/passwd" # forbidden — runner controls log paths
     } }
 
     task = AiTask.last
-    assert_equal AiTask::PENDING, task.status
+    assert_equal AiTask::IN_FLIGHT, task.outcome
     assert_nil task.log_path
   end
 

@@ -10,8 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_25_210458) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_30_140000) do
   create_table "ai_tasks", id: { type: :string, limit: 12 }, force: :cascade do |t|
+    t.string "active_job_id"
     t.string "branch"
     t.datetime "created_at", null: false
     t.string "docker_cmd"
@@ -19,16 +20,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_25_210458) do
     t.datetime "finished_at"
     t.string "log_path"
     t.string "model"
+    t.string "outcome", default: "in_flight", null: false
     t.integer "priority", default: 0, null: false
     t.text "prompt", null: false
     t.string "provider", default: "claude", null: false
     t.string "repo_path", null: false
-    t.string "solid_queue_job_id"
     t.datetime "started_at"
-    t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
+    t.index ["active_job_id"], name: "index_ai_tasks_on_active_job_id"
+    t.index ["outcome", "priority", "created_at"], name: "index_ai_tasks_on_outcome_and_priority_and_created_at"
+    t.index ["outcome"], name: "index_ai_tasks_on_outcome"
     t.index ["provider"], name: "index_ai_tasks_on_provider"
-    t.index ["status", "priority", "created_at"], name: "index_ai_tasks_on_status_and_priority_and_created_at"
-    t.index ["status"], name: "index_ai_tasks_on_status"
   end
 end

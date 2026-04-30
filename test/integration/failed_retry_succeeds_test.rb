@@ -27,7 +27,7 @@ class FailedRetrySucceedsTest < ActionDispatch::IntegrationTest
     perform_enqueued_jobs(only: RunClaudeJob)
 
     task.reload
-    assert_equal AiTask::FAILED, task.status
+    assert_equal AiTask::FAILED, task.outcome
     assert_match(/exit code 1/, task.error)
 
     # User clicks Retry on the show page.
@@ -43,7 +43,7 @@ class FailedRetrySucceedsTest < ActionDispatch::IntegrationTest
     assert_redirected_to task_path(task)
 
     task.reload
-    assert_equal AiTask::PENDING, task.status
+    assert_equal AiTask::IN_FLIGHT, task.outcome
     assert_nil task.error
     assert_nil task.started_at
     assert_nil task.finished_at
@@ -51,7 +51,7 @@ class FailedRetrySucceedsTest < ActionDispatch::IntegrationTest
     perform_enqueued_jobs(only: RunClaudeJob)
 
     task.reload
-    assert_equal AiTask::DONE, task.status
+    assert_equal AiTask::DONE, task.outcome
     assert_nil task.error
     assert_predicate task.finished_at, :present?
     assert_match(/all good/, File.read(task.log_path))

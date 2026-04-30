@@ -1,9 +1,10 @@
+<% status = @task.status %>
 <div class="mb-6 flex items-start justify-between gap-4">
   <div>
     <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Task</p>
     <h1 class="mt-1 flex items-center gap-3 text-2xl font-semibold tracking-tight">
       <span class="font-mono"><%= @task.id %></span>
-      <%= status_badge(@task.status) %>
+      <%= status_badge(status) %>
     </h1>
   </div>
   <div class="flex items-center gap-2">
@@ -11,12 +12,12 @@
           class: "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50" %>
     <%= link_to "View log", log_task_path(@task),
           class: "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50" %>
-    <% if @task.status == AiTask::FAILED || @task.status == AiTask::NEEDS_REVIEW %>
+    <% if status.retryable? %>
       <%= button_to "Retry", retry_task_path(@task), method: :post,
             form: { class: "inline" },
             class: "rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700" %>
     <% end %>
-    <% if @task.status == AiTask::PENDING || @task.status == AiTask::NEEDS_REVIEW %>
+    <% if status.cancellable? %>
       <%= button_to "Cancel", cancel_task_path(@task), method: :post,
             form: { class: "inline" },
             class: "rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700" %>
@@ -32,7 +33,9 @@
          [ "Branch",   @task.branch.presence || content_tag(:span, "—", class: "text-slate-400") ],
          [ "Model",    @task.model.presence  || content_tag(:span, "default", class: "text-slate-400") ],
          [ "Started",  @task.started_at  ? l(@task.started_at,  format: :short) : content_tag(:span, "—", class: "text-slate-400") ],
-         [ "Finished", @task.finished_at ? l(@task.finished_at, format: :short) : content_tag(:span, "—", class: "text-slate-400") ]
+         [ "Finished", @task.finished_at ? l(@task.finished_at, format: :short) : content_tag(:span, "—", class: "text-slate-400") ],
+         [ "Attempts", status.attempts ],
+         [ "Next retry at", status.next_retry_at ? l(status.next_retry_at, format: :short) : content_tag(:span, "—", class: "text-slate-400") ]
        ].each do |label, value| %>
       <div class="grid grid-cols-[10rem_1fr] gap-4 px-6 py-3">
         <dt class="text-slate-500"><%= label %></dt>

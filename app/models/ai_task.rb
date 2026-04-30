@@ -1,70 +1,68 @@
 class AiTask < ApplicationRecord
   class InvalidTransition < StandardError; end
 
-  STATUSES  = %w[pending running done failed cancelled needs_review].freeze
-  PROVIDERS = %w[claude].freeze # add "copilot" etc. as support lands
+  # OUTCOMES describes the *application*-level result of a task. Execution
+  # mechanics (queued / running / scheduled / retrying) are read from
+  # Solid Queue via TaskStatus — never duplicated here.
+  OUTCOMES = %w[in_flight done failed cancelled needs_review blocked].freeze
+  PROVIDERS = %w[claude].freeze
 
-  PENDING, RUNNING, DONE, FAILED, CANCELLED, NEEDS_REVIEW = STATUSES
+  IN_FLIGHT, DONE, FAILED, CANCELLED, NEEDS_REVIEW, BLOCKED = OUTCOMES
+  TERMINAL = (OUTCOMES - [ IN_FLIGHT ]).freeze
 
-  # Allowed source states per transition. Tightens the model so callers
-  # can't silently flip a finished/cancelled task back into the pipeline.
-  #
-  # NEEDS_REVIEW is reached when the subprocess exited cleanly but did not
-  # print the completion sentinel — i.e. we cannot tell whether the work
-  # was actually done. Triage manually, then retry or cancel.
-  TRANSITIONS = {
-    RUNNING      => [ PENDING ],
-    DONE         => [ RUNNING ],
-    FAILED       => [ PENDING, RUNNING ], # failures can fire from either
-    CANCELLED    => [ PENDING, NEEDS_REVIEW ],
-    NEEDS_REVIEW => [ RUNNING ],
-    PENDING      => [ FAILED, NEEDS_REVIEW ] # retry from failed or ambiguous runs
-  }.freeze
-
-  validates :status,    inclusion: { in: STATUSES }
+  validates :outcome,   inclusion: { in: OUTCOMES }
   validates :provider,  inclusion: { in: PROVIDERS }
   validates :repo_path, :prompt, presence: true
 
   before_create :assign_id
 
-  scope :pending, -> { where(status: PENDING) }
-  scope :running, -> { where(status: RUNNING) }
-  scope :recent,  -> { order(created_at: :desc) }
+  scope :in_flight, -> { where(outcome: IN_FLIGHT) }
+  scope :recent,    -> { order(created_at: :desc) }
 
   def enqueue!
     job = ProviderRegistry.job_for(provider).set(priority: -priority).perform_later(id)
-    update!(solid_queue_job_id: job.provider_job_id)
+    update!(active_job_id: job.job_id)
   end
 
-  def mark_running!(now:, log_path:)
-    transition_to!(RUNNING, started_at: now, log_path: log_path)
+  def mark_started!(now:, log_path:)
+    update!(started_at: now, log_path: log_path)
   end
 
   def mark_done!(now:)
-    transition_to!(DONE, finished_at: now)
+    transition_to_terminal!(DONE, finished_at: now)
   end
 
   def mark_failed!(error:, now:)
-    transition_to!(FAILED, error: error, finished_at: now)
+    transition_to_terminal!(FAILED, error: error, finished_at: now)
   end
 
   def mark_needs_review!(reason:, now:)
-    transition_to!(NEEDS_REVIEW, error: reason, finished_at: now)
+    transition_to_terminal!(NEEDS_REVIEW, error: reason, finished_at: now)
+  end
+
+  def mark_blocked!(reason:, now:)
+    transition_to_terminal!(BLOCKED, error: reason, finished_at: now)
   end
 
   def retry!
-    transition_to!(PENDING, error: nil, started_at: nil, finished_at: nil)
+    raise InvalidTransition, "cannot retry an in-flight task #{id}" if in_flight?
+    update!(outcome: IN_FLIGHT, error: nil, started_at: nil, finished_at: nil, active_job_id: nil)
     enqueue!
   end
 
   def cancel!
-    return false unless can_transition?(CANCELLED)
-    transition_to!(CANCELLED)
+    presenter = status
+    return false unless in_flight? && presenter.cancellable?
+    transition_to_terminal!(CANCELLED, finished_at: Time.current)
+    presenter.discard_queued_job
     true
   end
 
-  def can_transition?(target)
-    TRANSITIONS.fetch(target, []).include?(status)
+  def in_flight?  = outcome == IN_FLIGHT
+  def terminal?   = TERMINAL.include?(outcome)
+
+  def status
+    @status ||= TaskStatus.new(self)
   end
 
   def log_text
@@ -77,10 +75,9 @@ class AiTask < ApplicationRecord
     self.id ||= SecureRandom.hex(6)
   end
 
-  def transition_to!(target, attrs = {})
-    unless can_transition?(target)
-      raise InvalidTransition, "#{status} -> #{target} not allowed for AiTask #{id}"
-    end
-    update!(attrs.merge(status: target))
+  def transition_to_terminal!(target, attrs = {})
+    raise InvalidTransition, "#{outcome} -> #{target} not allowed for AiTask #{id}" unless in_flight?
+    update!(attrs.merge(outcome: target))
+    @status = nil
   end
 end

@@ -39,4 +39,9 @@ Rails.application.configure do
 
   # Raise error when a before_action's only/except options reference missing actions.
   config.action_controller.raise_on_missing_callback_actions = true
+
+  # Mirror dev/prod wiring so SolidQueue::Job hits the queue DB. The view
+  # layer reads SQ rows via TaskStatus, and we want test failures to come
+  # from real schema/relationship bugs, not from a missing-table fallback.
+  config.solid_queue.connects_to = { database: { writing: :queue } }
 end

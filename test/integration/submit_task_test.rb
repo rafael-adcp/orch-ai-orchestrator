@@ -22,7 +22,7 @@ class SubmitTaskTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     task = AiTask.last
-    assert_equal "pending", task.status
+    assert_equal "in_flight", task.outcome
     assert_equal @repo, task.repo_path
     assert_equal "say hi", task.prompt
     assert_match(/queued/i, response.body)

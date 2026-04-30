@@ -42,32 +42,33 @@ class TaskActionsTest < ActionDispatch::IntegrationTest
     task.enqueue!
     perform_enqueued_jobs
     task.reload
-    assert_equal "failed", task.status
+    assert_equal "failed", task.outcome
 
     assert_enqueued_with(job: RunClaudeJob) do
       post retry_task_path(task)
     end
     task.reload
-    assert_equal "pending", task.status
+    assert_equal "in_flight", task.outcome
     assert_nil task.error
     assert_nil task.started_at
     assert_nil task.finished_at
     assert_redirected_to task_path(task)
   end
 
-  test "cancel sets pending task to cancelled" do
+  test "cancel sets in-flight queued task to cancelled" do
     task = AiTask.create!(repo_path: @repo, prompt: "cancel me")
     post cancel_task_path(task)
     task.reload
-    assert_equal "cancelled", task.status
+    assert_equal "cancelled", task.outcome
     assert_redirected_to task_path(task)
   end
 
-  test "cancel does nothing if task is not pending" do
-    task = AiTask.create!(repo_path: @repo, prompt: "go", status: "running")
+  test "cancel is a no-op once a task has reached a terminal outcome" do
+    task = AiTask.create!(repo_path: @repo, prompt: "go")
+    task.mark_done!(now: Time.current)
     post cancel_task_path(task)
     task.reload
-    assert_equal "running", task.status
+    assert_equal "done", task.outcome
   end
 
   test "Mission Control engine is mounted at /jobs" do

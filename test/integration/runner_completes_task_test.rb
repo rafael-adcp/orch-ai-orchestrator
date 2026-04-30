@@ -31,7 +31,7 @@ class RunnerCompletesTaskTest < ActionDispatch::IntegrationTest
     perform_enqueued_jobs
     task.reload
 
-    assert_equal "done", task.status
+    assert_equal "done", task.outcome
     assert_predicate task.started_at, :present?
     assert_predicate task.finished_at, :present?
     assert_predicate task.log_path, :present?
@@ -58,7 +58,7 @@ class RunnerCompletesTaskTest < ActionDispatch::IntegrationTest
     perform_enqueued_jobs
     task.reload
 
-    assert_equal "failed", task.status
+    assert_equal "failed", task.outcome
     assert_match(/exit code 2/, task.error)
 
     get task_path(task)

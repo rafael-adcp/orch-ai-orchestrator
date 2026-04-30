@@ -31,8 +31,8 @@ class TaskWorkflowTest < ApplicationSystemTestCase
     assert_text "implement endpoint"
   end
 
-  test "pending task shows Cancel button; cancelling moves it to cancelled" do
-    task = AiTask.create!(repo_path: @repo, prompt: "p", status: AiTask::PENDING)
+  test "in-flight task shows Cancel button; cancelling moves it to cancelled" do
+    task = AiTask.create!(repo_path: @repo, prompt: "p")
 
     visit task_path(task)
     assert_button "Cancel"
@@ -42,10 +42,10 @@ class TaskWorkflowTest < ApplicationSystemTestCase
     assert_text AiTask::CANCELLED
   end
 
-  test "failed task shows Retry button; retry moves it back to pending" do
+  test "failed task shows Retry button; retry moves it back to in_flight" do
     task = AiTask.create!(
       repo_path: @repo, prompt: "p",
-      status: AiTask::FAILED, error: "boom"
+      outcome: AiTask::FAILED, error: "boom", finished_at: Time.current
     )
 
     visit task_path(task)
@@ -53,7 +53,7 @@ class TaskWorkflowTest < ApplicationSystemTestCase
     refute_button "Cancel"
 
     click_button "Retry"
-    assert_text AiTask::PENDING
+    assert_text "queued"
   end
 
   test "View log link returns the log contents" do
@@ -81,7 +81,7 @@ class TaskWorkflowTest < ApplicationSystemTestCase
 
     task = AiTask.last
     assert_equal "ship feature x", task.prompt
-    assert_equal AiTask::PENDING, task.status
+    assert_equal AiTask::IN_FLIGHT, task.outcome
 
     perform_enqueued_jobs
     visit task_path(task)
