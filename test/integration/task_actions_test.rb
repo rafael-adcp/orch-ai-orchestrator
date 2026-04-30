@@ -71,6 +71,20 @@ class TaskActionsTest < ActionDispatch::IntegrationTest
     assert_equal "done", task.outcome
   end
 
+  test "destroy deletes a finished task and its log, and redirects to the index" do
+    task = AiTask.create!(repo_path: @repo, prompt: "delete me",
+                          outcome: AiTask::DONE, finished_at: Time.current)
+    log = Rails.root.join("tmp", "destroy-#{task.id}.log")
+    File.write(log, "...")
+    task.update!(log_path: log.to_s)
+
+    delete task_path(task)
+
+    assert_redirected_to tasks_path
+    refute AiTask.exists?(task.id)
+    refute File.exist?(log), "log file should be cleaned up"
+  end
+
   test "Mission Control engine is mounted at /jobs" do
     get "/jobs"
     # MC may require auth (401), redirect (302), or serve (200) — any proves the mount works.

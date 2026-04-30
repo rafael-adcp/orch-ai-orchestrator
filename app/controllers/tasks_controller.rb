@@ -33,6 +33,16 @@ class TasksController < ApplicationController
     redirect_to task_path(task), notice: "cancelled"
   end
 
+  def destroy
+    task = AiTask.find(params[:id])
+    result = TaskPurge.delete(task)
+    if result.deleted?
+      redirect_to tasks_path, notice: "deleted #{task.id}"
+    else
+      redirect_to task_path(task), alert: "cannot delete: #{result.reason}"
+    end
+  end
+
   def log
     task = AiTask.find(params[:id])
     render plain: task.log_text || "(no log yet)"
