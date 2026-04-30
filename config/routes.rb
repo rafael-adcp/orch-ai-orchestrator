@@ -13,6 +13,9 @@ Rails.application.routes.draw do
   # root "posts#index"
   root "tasks#index"
   resources :tasks, only: %i[index new create show destroy] do
+    collection do
+      post :purge
+    end
     member do
       post :retry
       post :cancel

@@ -74,4 +74,30 @@ class TaskPurgeTest < ActiveSupport::TestCase
 
     assert result.deleted?
   end
+
+  # --- sweep ---
+
+  test "sweep deletes terminal tasks finished before the cutoff" do
+    old_done   = AiTask.create!(repo_path: "/tmp/r", prompt: "old",   outcome: AiTask::DONE,   finished_at: 40.days.ago)
+    old_failed = AiTask.create!(repo_path: "/tmp/r", prompt: "old f", outcome: AiTask::FAILED, finished_at: 31.days.ago)
+    fresh      = AiTask.create!(repo_path: "/tmp/r", prompt: "fresh", outcome: AiTask::DONE,   finished_at: 5.days.ago)
+    in_flight  = AiTask.create!(repo_path: "/tmp/r", prompt: "live")
+
+    report = TaskPurge.sweep(older_than: 30.days.ago)
+
+    assert_equal 2, report.deleted_count
+    refute AiTask.exists?(old_done.id)
+    refute AiTask.exists?(old_failed.id)
+    assert AiTask.exists?(fresh.id),     "tasks newer than the cutoff must survive"
+    assert AiTask.exists?(in_flight.id), "in-flight tasks are never swept"
+  end
+
+  test "sweep ignores in-flight tasks even with no finished_at" do
+    AiTask.create!(repo_path: "/tmp/r", prompt: "live")
+
+    report = TaskPurge.sweep(older_than: 1.year.ago)
+
+    assert_equal 0, report.deleted_count
+    assert_equal 1, AiTask.count
+  end
 end

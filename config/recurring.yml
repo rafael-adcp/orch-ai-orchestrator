@@ -1,15 +1,24 @@
-# examples:
-#   periodic_cleanup:
-#     class: CleanSoftDeletedRecordsJob
-#     queue: background
-#     args: [ 1000, { batch_size: 500 } ]
-#     schedule: every hour
-#   periodic_cleanup_with_command:
-#     command: "SoftDeletedRecord.due.delete_all"
-#     priority: 2
-#     schedule: at 5am every day
+# Recurring jobs scheduled by Solid Queue. The `default` block applies to
+# every environment that runs the worker; environment-specific overrides
+# can be added below it.
+#
+# `clear_solid_queue_finished_jobs` is the gem's built-in housekeeping —
+# it batches through the solid_queue_jobs table and drops rows finished
+# more than `SolidQueue.clear_finished_jobs_after` ago (default 1 day).
+# `purge_old_ai_tasks` is *our* equivalent for the AiTask table + the
+# on-disk task logs.
 
-production:
+default: &default
   clear_solid_queue_finished_jobs:
     command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
     schedule: every hour at minute 12
+  purge_old_ai_tasks:
+    class: PurgeOldTasksJob
+    queue: maintenance
+    schedule: every hour at minute 25
+
+development:
+  <<: *default
+
+production:
+  <<: *default

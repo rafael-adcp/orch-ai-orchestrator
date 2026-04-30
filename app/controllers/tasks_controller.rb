@@ -43,6 +43,12 @@ class TasksController < ApplicationController
     end
   end
 
+  def purge
+    report = TaskPurge.sweep(older_than: TaskPurge::DEFAULT_AGE.ago)
+    redirect_to tasks_path,
+                notice: "purged #{report.deleted_count} task(s); skipped #{report.skipped_count}"
+  end
+
   def log
     task = AiTask.find(params[:id])
     render plain: task.log_text || "(no log yet)"
