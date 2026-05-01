@@ -57,6 +57,6 @@ class TasksController < ApplicationController
   private
 
   def task_params
-    params.require(:ai_task).permit(:repo_path, :prompt, :branch, :model, :docker_cmd, :priority)
+    params.require(:ai_task).permit(:repo_path, :prompt, :model, :docker_cmd, :priority)
   end
 end

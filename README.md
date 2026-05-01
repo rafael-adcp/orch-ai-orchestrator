@@ -1,37 +1,58 @@
-# <img src="images/icon.png" alt="" height="80" valign="middle"> orchestrator (Orch) — Claude Code task queue
+# <img src="images/icon.png" alt="" height="80" valign="middle"> Orchestrator (Orch)
 
-Persistent SQLite queue + **Solid Queue** worker pool + **Mission Control**
-dashboard + a Rails web UI. Queue up tasks and it runs `claude -p` in
-parallel (up to N at a time), optionally inside a Docker container for each
-repo.
+> **TL;DR:** A self-hosted job queue that runs AI coding prompts in parallel against your local repos.
 
 <p align="center">
   <img src="images/full_picture.png" alt="Orchestrator UI overview">
 </p>
 
-## Why
 
-Hopping between terminals to feed Claude Code prompts one by one wastes time,
-especially when you have a backlog of small-to-medium changes spread across
-several repos. This app lets you dump every idea into a queue — _which repo,
-which env, which prompt_ — and walks away. A pool of N threads (default 4)
-keeps Claude busy in parallel, one task per dev env, no babysitting.
 
-Drop a prompt in the form, close the laptop, come back to a list of finished
-tasks with full logs.
+## Why?
 
-**Built for:**
+Orchestrator (**Orch**) treats AI coding prompts the way a CI server treats builds: you push them onto a queue, a pool of workers picks them up, and a dashboard tells you what happened.
 
-- Multiple Docker dev envs of the same project (`projeto-ABC-env-1`, `-env-2`, …)
-  running in parallel without stepping on each other.
-- Long-running, autonomous Claude Code runs (with `--max-turns` so the agent
-  actually _does_ the work instead of asking for clarification).
-- 100% local, zero external services — your prompts and code never leave your
-  machine.
-- Full transparency: every task is one Solid Queue job; failures land in
-  Mission Control with backtraces and a one-click retry.
+As developers we always have more we'd like to build than time to
+build it. AI coding agents have made each individual change cheap
+and fast — but every prompt still needs you in the driver's seat:
+launching it, watching it, remembering which window had which task,
+and being there when something goes wrong.
 
-## How it works
+The bottleneck isn't the model (the car) anymore — it's the human
+(the driver) in front of it. You can only watch so many spinners,
+juggle so many windows, and stay awake for so many hours before
+something gets dropped.
+
+Orch removes you from the loop: queue the work, walk away, the workers do the rest.
+- **Per-repo (repo_path) isolation.** Two prompts for the same repo never run at the same time, so working trees stay sane.
+  - Want to do things in the same repository simultaneously? (aka real parallelism)
+  clone the repo into distinct paths
+  (`C:\repos\project-ABC-env-1`, `-env-2`, …) and submit one task per path.
+- **Many prompts, many repos, in parallel.** Submit ten tasks across
+  ten repos and Orch runs N at a time, never two on the same working
+  tree simultaneously.
+- **Work happens while you don't.** Queue a backlog before bed, on the
+  commute, or before a meeting. Come back to finished branches instead
+  of an empty editor.
+- **Your prompt is what Claude sees.** Orch passes it through verbatim
+  (plus the success sentinel footer), so anything you want done — a new
+  branch, a commit, a push to remote, a PR — needs to be spelled out in
+  the prompt itself.
+- **Worker crashes are safe.** Solid Queue automatically reclaims
+  orphaned executions once the dead worker's heartbeat goes stale
+  (a few minutes by default) — no manual reaping required.
+- **Usage limits don't kill the run.** When the provider throttles,
+  the task is automatically rescheduled. No babysitting, no lost prompts.
+- **Every task has a verdict.** Done, failed, blocked, needs-review —
+  no "exit 0 but did nothing" surprises. (Details under the
+  [success sentinel](#the-success-sentinel) below.)
+- **Full audit trail.** Per-task append-only log on disk, plus retry
+  history and backtraces in the built-in Mission Control dashboard.
+- **Local-first.** Runs on your machine against your local clones; no
+  hosted service, no extra infrastructure to operate.
+
+
+## How it works (10,000 ft)
 
 ```
    POST /tasks ──►  AiTask row (SQLite)
@@ -39,16 +60,11 @@ tasks with full logs.
                        │ enqueue!
                        ▼
             ┌────────────────────────┐
-            │  Solid Queue worker    │  ← bin/jobs (4 threads default)
+            │  Solid Queue worker    │  ← bin/jobs
             └──────────┬─────────────┘
                        │ limits_concurrency to: 1, key: repo_path
                        ▼
-       ┌──────── RunClaudeJob ────────┐
-       │  job #1 ──► claude -p (IO.popen)
-       │  job #2 ──► claude -p
-       │  job #3 ──► claude -p
-       │  job #4 ──► claude -p
-       └──────────────────────────────┘
+                  RunClaudeJob ──► claude -p (subprocess)
                        │
                        ▼
         Mission Control at /jobs
@@ -56,25 +72,91 @@ tasks with full logs.
         log/tasks/<task-id>.log on disk
 ```
 
-Each task becomes a Solid Queue job. Watch progress / retry / discard from
-Mission Control at `/jobs`. The runner also writes `log/tasks/<task-id>.log`
-and updates the row's status in SQLite.
+### Per-task pipeline
 
-## Setup (Windows / PowerShell)
+Each task is one Solid Queue job. The runner streams stdout/stderr
+line-by-line into `log/tasks/<id>.log`, scans for usage-limit phrases
+and the success/blocked sentinel, then stamps a terminal outcome on
+the row.
+
+```
+  POST /tasks
+      │
+      ▼
+  AiTask row created (outcome = in_flight)
+      │  enqueue!
+      ▼
+  Solid Queue worker picks up RunClaudeJob
+      │  limits_concurrency blocks if another job
+      │  for the same repo_path is already running
+      ▼
+  ClaudeRunner opens log/tasks/<id>.log
+      │  builds argv via ClaudeCommand:
+      │    • no docker:  claude -p <flags> --model <m> --max-turns <n> "<prompt+sentinel>"
+      │    • w/ docker:  <docker_cmd> "<claude argv shellescaped>"
+      ▼
+  Subprocess#run streams stdout/stderr line-by-line
+      │  → LogWriter        appends to log file
+      │  → LimitDetector    scans for usage-limit phrases
+      │  → SuccessDetector  scans for ORCH_RESULT sentinel
+      ▼
+  Outcome decision (first match wins)
+      1. usage-limit phrase seen   →  raise UsageLimitError
+                                      (SQ retries; task stays in_flight)
+      2. non-zero exit code        →  failed ("exit code N")
+      3. ORCH_RESULT: BLOCKED      →  blocked (with reason)
+      4. ORCH_RESULT: SUCCESS      →  done
+      5. exit 0, no sentinel       →  needs_review
+```
+
+### Two state machines, cleanly separated
+
+A core design rule: **the `AiTask` row only owns _outcomes_** —
+`in_flight`, `done`, `failed`, `cancelled`, `needs_review`, `blocked`.
+**Solid Queue owns _mechanics_** — `queued`, `running`, `retrying`,
+`scheduled_at`, attempts. The `TaskStatus` presenter is the single
+place that combines them for the UI. Cooldowns and attempt counts live
+in exactly one place — nothing in app code mirrors them.
+
+### The success sentinel
+
+Claude can exit 0 having done nothing. To avoid silently shipping
+"green" tasks that never actually finished, every prompt is appended
+with a footer asking Claude to print exactly one of:
+
+```
+ORCH_RESULT: SUCCESS
+ORCH_RESULT: BLOCKED: <reason>
+```
+
+If neither sentinel appears, the task lands in `needs_review` instead
+of `done`. Disable with `ORCH_SENTINEL=0` (not recommended).
+
+## Requirements
+
+- **Ruby 3.3.x**
+- **[Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)** on `PATH`, already authenticated (e.g. via `claude login`)
+- SQLite — pulled in via the `sqlite3` gem; on some Linux distros you also need the system `libsqlite3` package
+
+## Setup
+
+No app-side config required — **Orch** just shells out to
+the `claude` CLI, so whatever auth you already use with Claude Code
+(e.g. `claude login`) keeps working.
+
+### Windows / PowerShell
 
 ```powershell
-# Ruby 3.3.x is required. If `ruby -v` doesn't print 3.3, prepend the path:
+# If `ruby -v` doesn't print 3.3, prepend the path:
 $env:PATH = "C:\Ruby33-x64\bin;$env:PATH"
 
 bundle install
 ruby bin/rails db:prepare
 ```
 
-## Setup (macOS / Linux)
+### macOS / Linux
 
 ```bash
-cd ~/repos/orchestrator-rails
-
 # Ruby 3.3.x via rbenv / asdf / mise
 ruby -v   # expect 3.3.x
 
@@ -82,9 +164,9 @@ bundle install
 bin/rails db:prepare
 ```
 
-## Starting the 2 processes
+## Running
 
-In **two separate terminals** (or two tabs):
+You need **two processes**: the web server and the Solid Queue worker.
 
 ### Windows
 
@@ -98,40 +180,43 @@ In **two separate terminals** (or two tabs):
 .\bin\start-worker.ps1
 ```
 
-> **Windows note:** Solid Queue defaults to a forking supervisor, which is
-> unimplemented on Windows. The script above passes `--mode async` so workers
-> run as threads inside one process. Functionally identical for this app.
+> **Windows note:** Solid Queue defaults to a forking supervisor, which
+> is unimplemented on Windows. The script above passes `--mode async` so
+> workers run as threads inside one process. Functionally identical for
+> this app.
 
 ### macOS / Linux
 
 ```bash
-# Terminal 1 — web (Puma)
+# Terminal 1 — web
 bin/rails server
-```
 
-```bash
 # Terminal 2 — Solid Queue worker pool
 bin/jobs start
 ```
 
-UI: <http://localhost:3000>
-Dashboard: <http://localhost:3000/jobs>
+Then open:
+
+- **Tasks UI** — <http://localhost:3000>
+- **Mission Control** — <http://localhost:3000/jobs>
 
 ## Adding tasks
 
-Tasks are queued through the web form at `/tasks/new`. Required: `repo_path`
-and `prompt`. Optional: `branch`, `model`, `docker_cmd`, `priority`.
+Use the form at <http://localhost:3000/tasks/new>. Fields:
 
-```
-http://localhost:3000/tasks/new
-```
+| Field | Required | Notes |
+|---|---|---|
+| `repo_path` | yes | Absolute path to the repo Claude should work in (`cwd` of the subprocess) |
+| `prompt` | yes | What you want Claude to do. Orch passes it through verbatim, so anything you want done must be spelled out here. |
+| `model` | no | Overrides `ORCH_CLAUDE_MODEL` for this task |
+| `docker_cmd` | no | Wrap Claude in a Docker invocation, e.g. `docker run --rm -v %cd%:/app img` |
+| `priority` | no | Higher = sooner. Default `0` |
 
-You can also enqueue from the Rails console:
+You can also queue from the Rails console:
 
 ```ruby
 bin/rails console
 > AiTask.create!(
-    id:        SecureRandom.hex(6),
     repo_path: "C:/repos/project-x",
     prompt:    "implement /users endpoint with pagination and tests",
     priority:  1
@@ -141,85 +226,38 @@ bin/rails console
 From the show page (`/tasks/:id`):
 
 - **View log** — opens the streaming log file as plain text.
-- **Retry** — resets a `failed`/`done` task to `pending` and re-enqueues it.
-- **Cancel** — marks a `pending` task `cancelled` (no-op if already running).
+- **Retry** — resets a finished task to `in_flight` and re-enqueues it.
+- **Cancel** — marks a queued/retrying task `cancelled` and discards
+  the queued job so it cannot fire later.
+- **Delete** — removes the row and its log file (only when not running).
 
-## Configuration
+The index has a **"Purge older than 30 days"** button that bulk-deletes
+finished tasks and their logs. The same purge runs hourly in the
+background ([config/recurring.yml](config/recurring.yml)).
 
-Configured via environment variables (read by `ClaudeCommand`):
+## Extending: other providers
 
-| Var | Default | Description |
-|---|---|---|
-| `ORCH_CLAUDE_BIN` | `claude` | Claude Code binary |
-| `ORCH_CLAUDE_FLAGS` | `-p --permission-mode acceptEdits` | Default flags |
-| `ORCH_CLAUDE_MODEL` | `sonnet` | Default model when task has none |
-| `ORCH_CLAUDE_MAX_TURNS` | `30` | `--max-turns` value |
+> ⚠️ **Work in progress.** The seam exists but has only ever been
+> exercised with the `claude` provider. Expect rough edges — interfaces
+> may shift as a second provider is wired up.
 
-Worker threads / queues live in [config/queue.yml](config/queue.yml).
-
-Per-task retry / cooldown is declared in
-[app/jobs/run_claude_job.rb](app/jobs/run_claude_job.rb):
-
-```ruby
-retry_on Claude::UsageLimitError, wait: 30.minutes, attempts: 5
-retry_on Claude::TimeoutError,    wait: 1.minute,  attempts: 2
-limits_concurrency to: 1, key: ->(task_id) { AiTask.find(task_id).repo_path }
-```
-
-## How each task is executed
-
-1. `POST /tasks` creates an `AiTask` (status `pending`) and calls
-   `enqueue!`, which pushes a `RunClaudeJob` onto the `claude` queue.
-2. A Solid Queue worker picks it up. `limits_concurrency` blocks if another
-   job for the **same `repo_path`** is already running.
-3. `ClaudeRunner` flips the task to `running`, opens
-   `log/tasks/<id>.log`, writes a header.
-4. `ClaudeCommand` builds the argv:
-   - without docker: `claude -p <flags> --model <m> --max-turns <n> "<prompt>"`
-   - with docker: `<docker_cmd> "<claude argv shellescape'd>"`
-5. `Subprocess#run` streams stdout/stderr line-by-line into the log file
-   while scanning for usage-limit phrases (regexes in `ClaudeRunner::LIMIT_PATTERNS`).
-6. On clean exit → `status=done`. Non-zero exit → `failed` with `exit code N`.
-   Limit phrase detected → `failed` with the phrase **and** raises
-   `Claude::UsageLimitError` so Solid Queue schedules a retry in 30 min.
-
-## Notes
-
-- **Isolated branch per task**: the orchestrator does **not** create branches
-  or commit. Leave that to the Claude prompt itself (e.g. "create branch
-  feature/x, implement, commit").
-- **Same `repo_path` cannot run in parallel**: `limits_concurrency` serializes
-  jobs that share a `repo_path` key. For true parallelism, clone the repo
-  into distinct paths (e.g. `C:\repos\project-ABC-env-1`, `-env-2`, ...)
-  and submit separate tasks.
-- **API key**: ensure `ANTHROPIC_API_KEY` is set in the worker's environment
-  (or inside the Docker container, if using that path).
-- **Worker crash**: Solid Queue automatically reclaims orphaned executions
-  on restart — no manual `reap_stale` step like the Python version had.
-- **Mission Control auth**: HTTP Basic auth is **disabled in development**
-  via [config/initializers/mission_control_jobs.rb](config/initializers/mission_control_jobs.rb).
-  In production, set `MISSION_CONTROL_USER` and `MISSION_CONTROL_PASSWORD`
-  env vars to enable it.
-- **Cross-platform**: tested on Windows (PowerShell, async-mode worker) and
-  macOS/Linux (forking worker). The `Gem.win_platform?` initializer in
-  [config/initializers/solid_queue_windows_signals.rb](config/initializers/solid_queue_windows_signals.rb)
-  trims the supervisor's signal list to what Windows supports.
+The `ProviderRegistry` ([app/services/provider_registry.rb](app/services/provider_registry.rb))
+maps a provider name to an `ActiveJob` class. Today only `claude` is
+registered ([config/initializers/provider_registry.rb](config/initializers/provider_registry.rb))
+but adding another agent CLI is essentially: write a new job + runner,
+register it under a new name, and stick the right value in
+`AiTask#provider`.
 
 ## Testing
 
-The codebase follows Sandi Metz / POOD limits (classes ≤100 LOC,
-methods ≤5 LOC) — see [PORT_PLAN.md](PORT_PLAN.md) §0.5 for the
-methodology. Every external boundary (subprocess, clock) sits behind
-an injectable seam.
-
 ```powershell
-# Run the full unit + integration suite (40 tests, ~2.5s)
+# Full unit + integration suite
 ruby bin/rails test
 
-# Run the browser-style end-to-end suite (4 tests, rack_test driver)
+# Browser-style end-to-end (rack_test)
 ruby bin/rails test:system
 
-# Just one layer
+# One layer at a time
 ruby bin/rails test test/services
 ruby bin/rails test test/jobs
 ruby bin/rails test test/controllers
@@ -228,38 +266,16 @@ ruby bin/rails test test/integration
 # Lint
 ruby bin/rubocop
 
-# Security audit
+# Security
 ruby bin/brakeman
 ruby bin/bundler-audit
 ```
 
-Notable layout:
+## Stack
 
-| File | Purpose |
-|---|---|
-| [test/services/claude_command_test.rb](test/services/claude_command_test.rb) | argv construction, docker mode |
-| [test/services/claude_runner_test.rb](test/services/claude_runner_test.rb) | streaming, exit handling, limit detection |
-| [test/jobs/run_claude_job_test.rb](test/jobs/run_claude_job_test.rb) | retry / discard / concurrency key |
-| [test/models/ai_task_test.rb](test/models/ai_task_test.rb) | validations, scopes, id generation |
-| [test/controllers/tasks_controller_test.rb](test/controllers/tasks_controller_test.rb) | 404s, strong-params, mass-assignment guards |
-| [test/integration/submit_task_test.rb](test/integration/submit_task_test.rb) | form → POST → enqueue (Slice A) |
-| [test/integration/runner_completes_task_test.rb](test/integration/runner_completes_task_test.rb) | job → done + log written (Slice B) |
-| [test/integration/usage_limit_retry_test.rb](test/integration/usage_limit_retry_test.rb) | limit phrase → failed + retry (Slice C) |
-| [test/integration/task_actions_test.rb](test/integration/task_actions_test.rb) | view log, retry, cancel, MC mount (Slices D+E) |
-| [test/system/task_workflow_test.rb](test/system/task_workflow_test.rb) | browser-style E2E: submit, retry, cancel, view log |
-| [test/support/fake_claude.rb](test/support/fake_claude.rb) | argv-driven test double for `Subprocess` |
+Rails 8.1 · Ruby 3.3 · SQLite · Solid Queue · Mission Control · Hotwire
+(Turbo + Stimulus) · Tailwind CSS · Propshaft · Puma · Importmap.
 
-## What changed vs the Python version
+## License
 
-| | Python/Prefect | Rails/Solid Queue |
-|---|---|---|
-| App code | 981 LOC | **398 LOC** (-59%) |
-| Test code | 1,026 LOC | **530 LOC** (-48%) |
-| Job dispatch | hand-rolled asyncio loop (172 LOC) | `solid_queue` gem |
-| Per-repo lock | manual SQL "skip if running" | `limits_concurrency` (1 line) |
-| Retry on limit | pauses entire dispatcher 30min | per-task `retry_on` with backoff |
-| Stale recovery | manual `reap_stale_running()` | automatic in Solid Queue |
-| Dashboard | separate Prefect server | Mission Control mounted at `/jobs` |
-| UI | static HTML command builder | server-rendered CRUD |
-| CLI | `orch add/list/show/logs/retry/cancel` | dropped (web-only) |
-| Live log tail | `orch logs -f <id>` | dropped (View log link only) |
+MIT — do whatever you want with it.

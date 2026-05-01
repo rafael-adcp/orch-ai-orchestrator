@@ -41,7 +41,6 @@
     <% [
          [ "Repo",     content_tag(:span, @task.repo_path, class: "font-mono break-all") ],
          [ "Prompt",   content_tag(:p, @task.prompt, class: "whitespace-pre-wrap text-slate-800") ],
-         [ "Branch",   @task.branch.presence || content_tag(:span, "—", class: "text-slate-400") ],
          [ "Model",    @task.model.presence  || content_tag(:span, "default", class: "text-slate-400") ],
          [ "Started",  @task.started_at  ? l(@task.started_at,  format: :short) : content_tag(:span, "—", class: "text-slate-400") ],
          [ "Finished", @task.finished_at ? l(@task.finished_at, format: :short) : content_tag(:span, "—", class: "text-slate-400") ],
