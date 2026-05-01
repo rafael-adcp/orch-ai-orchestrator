@@ -45,8 +45,10 @@ class AiTask < ApplicationRecord
   end
 
   def retry!
-    raise InvalidTransition, "cannot retry an in-flight task #{id}" if in_flight?
+    raise InvalidTransition, "cannot retry task #{id} (state: #{status.label})" unless status.retryable?
+    status.discard_queued_job
     update!(outcome: IN_FLIGHT, error: nil, started_at: nil, finished_at: nil, active_job_id: nil)
+    @status = nil
     enqueue!
   end
 

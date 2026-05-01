@@ -91,9 +91,24 @@ class AiTaskTest < ActiveSupport::TestCase
     assert_not_equal "old-uuid", t.active_job_id, "retry must produce a new active_job_id"
   end
 
-  test "retry! refuses an in-flight task" do
+  test "retry! refuses an in-flight task that is still queued/running" do
     t = AiTask.create!(valid_attrs)
     assert_raises(AiTask::InvalidTransition) { t.retry! }
+  end
+
+  test "retry! works when SQ-failed but AiTask still in_flight" do
+    t = AiTask.create!(valid_attrs.merge(active_job_id: "old-uuid"))
+    fake_presenter = Struct.new(:retryable, :discarded) do
+      def label              = :failed
+      def retryable?         = retryable
+      def discard_queued_job = self.discarded = true
+    end.new(true, false)
+    t.define_singleton_method(:status) { fake_presenter }
+
+    t.retry!
+    assert fake_presenter.discarded, "dead SQ job must be discarded on retry"
+    assert_equal AiTask::IN_FLIGHT, t.outcome
+    assert_not_equal "old-uuid", t.active_job_id
   end
 
   test "cancel! requires the presenter to say it's cancellable" do

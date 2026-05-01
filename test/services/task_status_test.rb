@@ -119,11 +119,24 @@ class TaskStatusTest < ActiveSupport::TestCase
     end
   end
 
-  test "retryable? is false for cancelled and in-flight tasks" do
-    cancelled = TaskStatus.new(task(outcome: "cancelled"), sq_job_class: FakeJobClass.new)
-    refute cancelled.retryable?, "cancelled tasks must not surface a Retry button"
+  test "retryable? is true when SQ exhausted retries while AiTask is still in_flight" do
+    # The case the live app hit: SQ marked the job :failed, AiTask never
+    # got a terminal outcome. Without this, the Retry button vanished.
+    sq = FakeJobClass.new(records: { "uuid-1" => [ FakeSqJob.new(failed: true) ] })
+    assert TaskStatus.new(task, sq_job_class: sq).retryable?
+  end
 
-    in_flight = TaskStatus.new(task, sq_job_class: FakeJobClass.new)
-    refute in_flight.retryable?, "in-flight tasks must not surface a Retry button"
+  test "retryable? is false for cancelled, queued, running and retrying tasks" do
+    cancelled = TaskStatus.new(task(outcome: "cancelled"), sq_job_class: FakeJobClass.new)
+    refute cancelled.retryable?
+
+    queued = TaskStatus.new(task, sq_job_class: FakeJobClass.new)
+    refute queued.retryable?, "queued in-flight tasks must not surface a Retry button"
+
+    running_sq = FakeJobClass.new(records: { "uuid-1" => [ FakeSqJob.new(claimed: true) ] })
+    refute TaskStatus.new(task, sq_job_class: running_sq).retryable?
+
+    retrying_sq = FakeJobClass.new(records: { "uuid-1" => [ FakeSqJob.new(scheduled: true, executions: 1) ] })
+    refute TaskStatus.new(task, sq_job_class: retrying_sq).retryable?
   end
 end

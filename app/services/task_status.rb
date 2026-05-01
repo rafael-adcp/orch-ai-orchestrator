@@ -25,10 +25,14 @@ class TaskStatus
   def retrying?      = label == RETRYING
   def queued?        = label == QUEUED
   def cancellable?   = @task.in_flight? && !running?
-  # A task is offered the "Retry" affordance once it has finished on its
-  # own; cancelled tasks are excluded because the user explicitly stopped
-  # them and re-running would surprise.
-  def retryable?     = @task.terminal? && label != CANCELLED
+  # A task is offered the "Retry" affordance once it has finished — at
+  # either layer. That includes the awkward case where Solid Queue
+  # exhausted its retries (job :failed) while AiTask is still in_flight;
+  # the presenter is the only place that reconciles the two, so it owns
+  # this rule. Cancelled tasks are excluded because the user explicitly
+  # stopped them.
+  RETRYABLE_LABELS = %i[done failed needs_review blocked].freeze
+  def retryable?     = RETRYABLE_LABELS.include?(label)
 
   def attempts
     return 0 unless sq_job
