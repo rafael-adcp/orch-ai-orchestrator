@@ -13,7 +13,7 @@ class ClaudeCommandTest < ActiveSupport::TestCase
     # resolve_bin tests below lock the Windows behavior in detail.
     expected_bin = Gem.win_platform? ? %r{[/\\]claude\.(?:exe|cmd|bat)\z}i : /\Aclaude\z/
     assert_match(expected_bin, argv.first)
-    assert_equal [ "-p", "--model", "sonnet", "--max-turns", "30" ], argv[1..-2]
+    assert_equal [ "-p", "--model", "sonnet", "--effort", "max", "--max-turns", "30" ], argv[1..-2]
     # Last arg is the prompt with the sentinel footer appended.
     assert argv.last.start_with?("do x"), "prompt should be preserved at the start"
     assert_match(/ORCH_RESULT:\s*SUCCESS/, argv.last)
@@ -22,6 +22,24 @@ class ClaudeCommandTest < ActiveSupport::TestCase
   test "sentinel footer can be disabled" do
     cmd = ClaudeCommand.new(bin: "claude", flags: [], model: "sonnet", max_turns: 1, sentinel: false)
     assert_equal "do x", cmd.build(task).last
+  end
+
+  test "effort defaults to max for sonnet" do
+    cmd = ClaudeCommand.new(bin: "claude", flags: [], model: "sonnet", max_turns: 1, sentinel: false)
+    argv = cmd.build(task)
+    assert_equal "max", argv[argv.index("--effort") + 1]
+  end
+
+  test "effort defaults to xhigh for opus" do
+    cmd = ClaudeCommand.new(bin: "claude", flags: [], model: "sonnet", max_turns: 1, sentinel: false)
+    argv = cmd.build(task(model: "opus"))
+    assert_equal "xhigh", argv[argv.index("--effort") + 1]
+  end
+
+  test "per-task effort overrides default" do
+    cmd = ClaudeCommand.new(bin: "claude", flags: [], model: "sonnet", max_turns: 1, sentinel: false)
+    argv = cmd.build(task(effort: "low"))
+    assert_equal "low", argv[argv.index("--effort") + 1]
   end
 
   test "task model overrides default model" do

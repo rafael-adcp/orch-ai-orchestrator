@@ -58,3 +58,4 @@ yarn-debug.log*
 # Ignore local logs from runner output.
 /logs/*
 !/logs/.keep
+coverage/*

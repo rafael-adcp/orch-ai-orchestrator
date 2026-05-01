@@ -36,11 +36,11 @@ class TasksControllerTest < ActionDispatch::IntegrationTest
     assert_match "(no log yet)", response.body
   end
 
-  test "index limits to 100 most-recent" do
+  test "index paginates at 100 per page" do
     101.times { AiTask.create!(repo_path: @repo, prompt: "x") }
     get tasks_path
     assert_response :success
-    # one <tr> per task in the body, plus 1 thead row
+    # one <tr> per task in the body, plus 1 thead row; page 1 shows 100 tasks
     rows = response.body.scan(/<tr/).size
     assert_equal 101, rows
   end

@@ -144,4 +144,27 @@ class AiTaskTest < ActiveSupport::TestCase
     refute t.cancel!
     assert_equal AiTask::DONE, t.outcome
   end
+
+  # --- recurring ---
+
+  test "recurring? is true when recurring_interval_hours is set" do
+    assert AiTask.new(valid_attrs(recurring_interval_hours: 6)).recurring?
+    refute AiTask.new(valid_attrs).recurring?
+  end
+
+  test "schedule_recurrence! resets task to in_flight and enqueues with wait" do
+    t = AiTask.create!(valid_attrs(recurring_interval_hours: 4))
+    t.mark_done!(now: Time.current)
+    assert_equal AiTask::DONE, t.outcome
+
+    assert_enqueued_with(job: RunClaudeJob) do
+      t.schedule_recurrence!
+    end
+
+    assert_equal AiTask::IN_FLIGHT, t.outcome
+    assert_nil t.error
+    assert_nil t.started_at
+    assert_nil t.finished_at
+    assert_predicate t.active_job_id, :present?
+  end
 end

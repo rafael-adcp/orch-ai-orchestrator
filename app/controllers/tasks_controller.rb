@@ -1,6 +1,6 @@
 class TasksController < ApplicationController
   def index
-    @tasks = AiTask.recent.limit(100)
+    set_tasks_list
   end
 
   def show
@@ -8,7 +8,7 @@ class TasksController < ApplicationController
   end
 
   def new
-    pre = params.permit(ai_task: [ :repo_path, :prompt, :model, :docker_cmd, :priority ])
+    pre = params.permit(ai_task: [ :repo_path, :prompt, :model, :effort, :docker_cmd, :priority, :recurring_interval_hours ])
     @task = AiTask.new(pre.fetch(:ai_task, {}))
   end
 
@@ -45,9 +45,12 @@ class TasksController < ApplicationController
   end
 
   def purge
-    report = TaskPurge.sweep(older_than: TaskPurge::DEFAULT_AGE.ago)
-    redirect_to tasks_path,
-                notice: "purged #{report.deleted_count} task(s); skipped #{report.skipped_count}"
+    TaskPurge.sweep
+    set_tasks_list
+    respond_to do |format|
+      format.turbo_stream { render turbo_stream: turbo_stream.replace("tasks-list", partial: "tasks/tasks_list") }
+      format.html { redirect_to tasks_path }
+    end
   end
 
   def log
@@ -58,6 +61,14 @@ class TasksController < ApplicationController
   private
 
   def task_params
-    params.require(:ai_task).permit(:repo_path, :prompt, :model, :docker_cmd, :priority)
+    params.require(:ai_task).permit(:repo_path, :prompt, :model, :effort, :docker_cmd, :priority, :recurring_interval_hours)
+  end
+
+  def set_tasks_list
+    per_page  = Rails.application.config.orchestrator[:tasks_per_page]
+    @page     = [ params[:page].to_i, 1 ].max
+    @tasks    = AiTask.recent.offset((@page - 1) * per_page).limit(per_page + 1)
+    @has_next = @tasks.size > per_page
+    @tasks    = @tasks.first(per_page)
   end
 end

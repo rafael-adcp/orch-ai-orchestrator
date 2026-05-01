@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cmd="${1:-}"
+
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*)
+    # Git Bash / MSYS on Windows: ensure Ruby is on PATH and use --mode async
+    # (Solid Queue's default fork supervisor is unimplemented on Windows)
+    if ! command -v ruby &>/dev/null; then
+      export PATH="C:/Ruby33-x64/bin:$PATH"
+    fi
+    JOBS_FLAGS="--mode async"
+    ;;
+  *)
+    JOBS_FLAGS=""
+    ;;
+esac
+
+case "$cmd" in
+  ui)
+    exec ruby bin/rails server
+    ;;
+  workers)
+    exec ruby bin/jobs start $JOBS_FLAGS
+    ;;
+  *)
+    echo "Usage: bin/run [ui|workers]" >&2
+    exit 1
+    ;;
+esac

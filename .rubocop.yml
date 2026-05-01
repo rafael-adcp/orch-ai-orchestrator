@@ -1,8 +1,41 @@
 # Omakase Ruby styling for Rails
 inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 
-# Overwrite or add rules to create your own house style
-#
-# # Use `[a, [b, c]]` not `[ a, [ b, c ] ]`
-# Layout/SpaceInsideArrayLiteralBrackets:
-#   Enabled: false
+require:
+  - rubocop-performance
+  - rubocop-minitest
+
+# ---------------------------------------------------------------------------
+# Sandi Metz / POODR hard limits (mirror of AGENTS.md §1)
+# ---------------------------------------------------------------------------
+
+Metrics/ClassLength:
+  Max: 100
+
+Metrics/MethodLength:
+  Max: 5
+
+Metrics/ParameterLists:
+  Max: 4
+
+Metrics/ModuleLength:
+  Max: 100
+
+# ABC = Assignments + Branches + Conditions; keeps methods simple and flat
+Metrics/AbcSize:
+  Max: 15
+
+Metrics/CyclomaticComplexity:
+  Max: 6
+
+Metrics/PerceivedComplexity:
+  Max: 7
+
+# Block length is relaxed for tests and config DSLs which are intentionally long
+Metrics/BlockLength:
+  Max: 25
+  Exclude:
+    - "test/**/*"
+    - "config/**/*"
+    - "db/migrate/**/*"
+    - "db/schema.rb"

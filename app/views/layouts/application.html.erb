@@ -15,7 +15,6 @@
     <%#= tag.link rel: "manifest", href: pwa_manifest_path(format: :json) %>
 
     <link rel="icon" href="/icon.png" type="image/png">
-    <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/icon.png">
 
     <%# Includes all stylesheet files in app/assets/stylesheets %>
@@ -26,14 +25,13 @@
   <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
     <header class="border-b border-slate-200 bg-white">
       <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-        <%= link_to tasks_path, class: "flex items-center gap-2 font-semibold tracking-tight" do %>
-          <span class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-white text-xs font-bold">OR</span>
-          <span>Orchestrator</span>
+        <%= link_to tasks_path, class: "flex items-center gap-3 font-semibold tracking-tight" do %>
+          <%= image_tag "/icon.png", alt: "Orchestrator",size:"50x50", class: "rounded-md" %>
+          <span class="text-lg">Orch</span>
         <% end %>
         <nav class="flex items-center gap-4 text-sm">
           <%= link_to "Tasks", tasks_path, class: "text-slate-600 hover:text-slate-900" %>
-          <%= link_to "Jobs", "/jobs", class: "text-slate-600 hover:text-slate-900" %>
-          <%= link_to "New task", new_task_path, class: "rounded-md bg-slate-900 px-3 py-1.5 text-white text-xs font-medium hover:bg-slate-700" %>
+          <%= link_to "Jobs", "/jobs", class: "text-slate-600 hover:text-slate-900", target: "_blank" %>
         </nav>
       </div>
     </header>

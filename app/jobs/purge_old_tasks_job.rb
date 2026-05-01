@@ -5,7 +5,7 @@
 class PurgeOldTasksJob < ApplicationJob
   queue_as :maintenance
 
-  def perform(older_than: TaskPurge::DEFAULT_AGE.ago)
+  def perform(older_than: TaskPurge.default_age.ago)
     cutoff = older_than.is_a?(ActiveSupport::Duration) ? older_than.ago : older_than
     TaskPurge.sweep(older_than: cutoff)
   end

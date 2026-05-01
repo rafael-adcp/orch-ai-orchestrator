@@ -112,8 +112,8 @@ class TaskStatusTest < ActiveSupport::TestCase
     assert_nil TaskStatus.new(task, sq_job_class: sq).next_retry_at, "scheduled but not retrying => no retry display"
   end
 
-  test "retryable? is true for terminal outcomes other than cancelled" do
-    %i[done failed needs_review blocked].each do |o|
+  test "retryable? is true for all terminal outcomes including cancelled" do
+    %i[done failed needs_review blocked cancelled].each do |o|
       status = TaskStatus.new(task(outcome: o.to_s), sq_job_class: FakeJobClass.new)
       assert status.retryable?, "#{o} should offer retry"
     end
@@ -126,10 +126,7 @@ class TaskStatusTest < ActiveSupport::TestCase
     assert TaskStatus.new(task, sq_job_class: sq).retryable?
   end
 
-  test "retryable? is false for cancelled, queued, running and retrying tasks" do
-    cancelled = TaskStatus.new(task(outcome: "cancelled"), sq_job_class: FakeJobClass.new)
-    refute cancelled.retryable?
-
+  test "retryable? is false for queued, running and retrying tasks" do
     queued = TaskStatus.new(task, sq_job_class: FakeJobClass.new)
     refute queued.retryable?, "queued in-flight tasks must not surface a Retry button"
 

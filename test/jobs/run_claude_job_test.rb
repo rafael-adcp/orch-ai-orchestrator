@@ -27,6 +27,73 @@ class RunClaudeJobTest < ActiveSupport::TestCase
     assert_enqueued_jobs 1, only: RunClaudeJob
   end
 
+  test "schedules retry at exact reset time when limit line includes it" do
+    freeze_time do
+      # Claude prints "resets 00:30am (UTC)" — 30 minutes from frozen now (00:00 UTC)
+      reset_str = 30.minutes.from_now.strftime("%l:%M%P").strip
+      line = "You've hit your limit · resets #{reset_str} (UTC)\n"
+      ClaudeRunner.subprocess_override = FakeClaude.new(scripts: {
+        /.*/ => { lines: [ line ], exit: 0 }
+      })
+
+      task = AiTask.create!(repo_path: @repo, prompt: "go")
+      RunClaudeJob.perform_later(task.id)
+      perform_enqueued_jobs(only: RunClaudeJob)
+
+      enqueued = enqueued_jobs.find { |j| j[:job] == RunClaudeJob }
+      assert enqueued, "expected a retry to be enqueued"
+      # Tolerate up to 60s because strftime truncates seconds from the reset time
+      assert_in_delta 30.minutes.from_now.to_f, enqueued[:at], 60
+    end
+  end
+
+  test "schedules retry at exact reset time for bare-hour format (e.g. '6am')" do
+    travel_to Time.find_zone("America/Sao_Paulo").local(2026, 5, 1, 2, 8, 53) do
+      ClaudeRunner.subprocess_override = FakeClaude.new(scripts: {
+        /.*/ => { lines: [ "You've hit your limit · resets 6am (America/Sao_Paulo)\n" ], exit: 0 }
+      })
+
+      task = AiTask.create!(repo_path: @repo, prompt: "go")
+      RunClaudeJob.perform_later(task.id)
+      perform_enqueued_jobs(only: RunClaudeJob)
+
+      enqueued = enqueued_jobs.find { |j| j[:job] == RunClaudeJob }
+      assert enqueued, "expected a retry to be enqueued"
+      expected = Time.find_zone("America/Sao_Paulo").local(2026, 5, 1, 6, 0, 0).to_f
+      assert_in_delta expected, enqueued[:at], 5
+    end
+  end
+
+  test "falls back to 30-minute wait when no reset time in output" do
+    freeze_time do
+      ClaudeRunner.subprocess_override = FakeClaude.new(scripts: {
+        /.*/ => { lines: [ "You've hit your limit\n" ], exit: 0 }
+      })
+
+      task = AiTask.create!(repo_path: @repo, prompt: "go")
+      RunClaudeJob.perform_later(task.id)
+      perform_enqueued_jobs(only: RunClaudeJob)
+
+      enqueued = enqueued_jobs.find { |j| j[:job] == RunClaudeJob }
+      assert enqueued, "expected a retry to be enqueued"
+      assert_in_delta 30.minutes.from_now.to_f, enqueued[:at], 5
+    end
+  end
+
+  test "stops retrying after MAX_LIMIT_RETRIES attempts" do
+    ClaudeRunner.subprocess_override = FakeClaude.new(scripts: {
+      /.*/ => { lines: [ "You've hit your limit\n" ], exit: 0 }
+    })
+
+    task = AiTask.create!(repo_path: @repo, prompt: "go")
+
+    job = RunClaudeJob.new(task.id)
+    job.executions = RunClaudeJob::MAX_LIMIT_RETRIES
+
+    assert_raises(Claude::UsageLimitError) { job.perform(task.id) }
+    assert_enqueued_jobs 0, only: RunClaudeJob
+  end
+
   test "does not retry on plain failure" do
     fake = FakeClaude.new(scripts: {
       /.*/ => { lines: [], exit: 1 }
@@ -67,5 +134,31 @@ class RunClaudeJobTest < ActiveSupport::TestCase
 
   test "concurrency limit is 1" do
     assert_equal 1, RunClaudeJob.concurrency_limit
+  end
+
+  # --- recurring ---
+
+  test "schedules next run after completing a recurring task" do
+    fake = FakeClaude.new(scripts: { /.*/ => { lines: [ "ORCH_RESULT: SUCCESS\n" ], exit: 0 } })
+    ClaudeRunner.subprocess_override = fake
+
+    task = AiTask.create!(repo_path: @repo, prompt: "go", recurring_interval_hours: 6)
+    RunClaudeJob.perform_later(task.id)
+    perform_enqueued_jobs(only: RunClaudeJob)
+
+    assert_enqueued_jobs 1, only: RunClaudeJob
+    task.reload
+    assert_equal AiTask::IN_FLIGHT, task.outcome
+  end
+
+  test "does not schedule next run for a one-shot task" do
+    fake = FakeClaude.new(scripts: { /.*/ => { lines: [ "ORCH_RESULT: SUCCESS\n" ], exit: 0 } })
+    ClaudeRunner.subprocess_override = fake
+
+    task = AiTask.create!(repo_path: @repo, prompt: "go")
+    RunClaudeJob.perform_later(task.id)
+    perform_enqueued_jobs(only: RunClaudeJob)
+
+    assert_enqueued_jobs 0, only: RunClaudeJob
   end
 end

@@ -1,52 +1,18 @@
+<% purge_age   = TaskPurge.default_age %>
+<% purge_label = distance_of_time_in_words(purge_age) %>
 <div class="mb-6 flex items-end justify-between">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Tasks</h1>
-    <p class="mt-1 text-sm text-slate-500">The 100 most recent runs across all repos.</p>
   </div>
   <div class="flex items-center gap-2">
-    <%= button_to "Purge older than 30 days", purge_tasks_path, method: :post,
-          form: { class: "inline", data: { turbo_confirm: "Permanently delete all tasks finished more than 30 days ago, including their logs?" } },
+    <%= button_to "Purge older than #{purge_label}", purge_tasks_path, method: :post,
+          form: { class: "inline", data: { turbo_confirm: "Permanently delete all tasks finished more than #{purge_label} ago, including their logs?" } },
           class: "rounded-md border border-rose-300 bg-white px-3 py-2 text-sm font-medium text-rose-700 hover:bg-slate-50" %>
     <%= link_to "New task", new_task_path,
           class: "rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-700" %>
   </div>
 </div>
 
-<div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-  <% if @tasks.empty? %>
-    <div class="px-6 py-16 text-center">
-      <p class="text-sm font-medium text-slate-900">No tasks yet</p>
-      <p class="mt-1 text-sm text-slate-500">Queue your first run to see it appear here.</p>
-      <%= link_to "New task", new_task_path,
-            class: "mt-4 inline-flex rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700" %>
-    </div>
-  <% else %>
-    <table class="min-w-full divide-y divide-slate-200 text-sm">
-      <thead class="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
-        <tr>
-          <th class="px-4 py-3 text-left">ID</th>
-          <th class="px-4 py-3 text-left">Status</th>
-          <th class="px-4 py-3 text-left">Repo</th>
-          <th class="px-4 py-3 text-left">Prompt</th>
-          <th class="px-4 py-3 text-left">Created</th>
-          <th class="px-4 py-3"></th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
-        <% @tasks.each do |t| %>
-          <tr class="hover:bg-slate-50 cursor-pointer group" onclick="location.href='<%= task_path(t) %>'">
-            <td class="px-4 py-3 font-mono text-xs text-slate-900"><%= t.id %></td>
-            <td class="px-4 py-3"><%= status_badge(t.status) %></td>
-            <td class="px-4 py-3 font-mono text-xs text-slate-600 truncate max-w-xs"><%= t.repo_path %></td>
-            <td class="px-4 py-3 text-slate-700 truncate max-w-md"><%= t.prompt %></td>
-            <td class="px-4 py-3 text-slate-500"><%= t.created_at.to_fs(:short) if t.created_at %></td>
-            <td class="px-4 py-3 text-right" onclick="event.stopPropagation()">
-              <%= link_to "Copy", new_task_path(ai_task: { repo_path: t.repo_path, prompt: t.prompt, model: t.model, docker_cmd: t.docker_cmd, priority: t.priority }),
-                    class: "opacity-0 group-hover:opacity-100 rounded px-2 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-600 transition-opacity" %>
-            </td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
-  <% end %>
-</div>
+<%= render 'status_diagram' %>
+
+<%= render 'tasks_list' %>

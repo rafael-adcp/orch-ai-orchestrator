@@ -3,6 +3,8 @@ require "shellwords"
 # Builds the argv to invoke the `claude` CLI for a given task.
 class ClaudeCommand
   DEFAULT_MODEL = "sonnet".freeze
+  DEFAULT_EFFORT_BY_MODEL = { "opus" => "xhigh" }.freeze
+  DEFAULT_EFFORT_FALLBACK = "max".freeze
 
   # Footer appended to every prompt so we can tell apart "Claude finished"
   # from "Claude exited 0 after stopping for any reason." The runner greps
@@ -17,24 +19,31 @@ class ClaudeCommand
     Do not omit this line. Do not wrap it in code fences. It must be on its own line.
   PROMPT
 
-  def initialize(bin: ENV.fetch("ORCH_CLAUDE_BIN", "claude"),
-                 flags: ENV.fetch("ORCH_CLAUDE_FLAGS", "-p --permission-mode acceptEdits").split,
-                 model: ENV["ORCH_CLAUDE_MODEL"].presence || DEFAULT_MODEL,
-                 max_turns: ENV.fetch("ORCH_CLAUDE_MAX_TURNS", "30").to_i,
-                 sentinel: ENV.fetch("ORCH_SENTINEL", "1") != "0")
+  def initialize(bin: Rails.application.config.orchestrator[:claude_bin],
+                 flags: Rails.application.config.orchestrator[:claude_flags],
+                 model: Rails.application.config.orchestrator[:claude_model],
+                 max_turns: Rails.application.config.orchestrator[:claude_max_turns],
+                 sentinel: Rails.application.config.orchestrator[:sentinel])
     @bin, @flags, @model, @max_turns, @sentinel =
       resolve_bin(bin), flags, model, max_turns, sentinel
   end
 
   def build(task)
     prompt = @sentinel ? "#{task.prompt}#{SENTINEL_FOOTER}" : task.prompt
-    cmd = [ @bin, *@flags, "--model", task.model.presence || @model,
+    resolved_model = task.model.presence || @model
+    resolved_effort = task.effort.presence || effort_default(resolved_model)
+    cmd = [ @bin, *@flags, "--model", resolved_model,
+            "--effort", resolved_effort,
             "--max-turns", @max_turns.to_s, prompt ]
     return cmd unless task.docker_cmd.present?
     [ *task.docker_cmd.split, cmd.shelljoin ]
   end
 
   private
+
+  def effort_default(model)
+    DEFAULT_EFFORT_BY_MODEL.fetch(model.to_s.downcase, DEFAULT_EFFORT_FALLBACK)
+  end
 
   # On Windows, `CreateProcess` (used by Ruby's IO.popen array form) does not
   # honor PATHEXT or App Paths shims the way cmd.exe does. A bare `claude`

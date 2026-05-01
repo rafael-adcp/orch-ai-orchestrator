@@ -111,6 +111,7 @@ class ClaudeRunnerTest < ActiveSupport::TestCase
   test "log writer write error marks task failed instead of orphaning it in_flight" do
     failing_logs = Class.new do
       def path_for(id) = "/nope/#{id}.log"
+      def ensure_dir(_) = nil
       def event(path, _) = raise(LogWriter::WriteError, "cannot append to log #{path}: denied")
       def append(*) = nil
     end.new

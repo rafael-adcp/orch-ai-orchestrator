@@ -10,11 +10,12 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_01_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_01_300000) do
   create_table "ai_tasks", id: { type: :string, limit: 12 }, force: :cascade do |t|
     t.string "active_job_id"
     t.datetime "created_at", null: false
     t.string "docker_cmd"
+    t.string "effort"
     t.text "error"
     t.datetime "finished_at"
     t.string "log_path"
@@ -23,6 +24,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_01_000000) do
     t.integer "priority", default: 0, null: false
     t.text "prompt", null: false
     t.string "provider", default: "claude", null: false
+    t.integer "recurring_interval_hours"
     t.string "repo_path", null: false
     t.datetime "started_at"
     t.datetime "updated_at", null: false

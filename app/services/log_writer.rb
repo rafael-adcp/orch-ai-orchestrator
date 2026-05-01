@@ -7,7 +7,7 @@
 class LogWriter
   class WriteError < StandardError; end
 
-  def initialize(root: Rails.root.join("log", "tasks"), clock: Time)
+  def initialize(root: Rails.root.join(Rails.application.config.orchestrator[:task_log_root]), clock: Time)
     @root, @clock = root, clock
   end
 

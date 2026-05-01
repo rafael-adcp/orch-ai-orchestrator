@@ -46,7 +46,10 @@ class ClaudeRunner
   def start
     path = @logs.path_for(@task.id)
     @task.mark_started!(now: @clock.current, log_path: path)
+    @logs.ensure_dir(path)
+    @logs.append(path, "\n#{"=" * 60}\n")
     @logs.event(path, "starting work on task #{@task.id} (repo=#{@task.repo_path})")
+    @logs.append(path, "#{"=" * 60}\n\n")
   end
 
   def stream
@@ -71,7 +74,7 @@ class ClaudeRunner
   def finalize(exit_status, limit_hit, success_result)
     if limit_hit
       log_event("usage limit hit (#{limit_hit}); Solid Queue will retry")
-      raise Claude::UsageLimitError, limit_hit.to_s
+      raise Claude::UsageLimitError.new(limit_hit.to_s, reset_at: limit_hit.reset_at)
     elsif exit_status.nonzero?
       mark_failed("exit code #{exit_status}")
     elsif success_result&.blocked?

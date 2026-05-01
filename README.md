@@ -1,5 +1,7 @@
 # <img src="images/icon.png" alt="" height="80" valign="middle"> Orchestrator (Orch)
 
+[![codecov](https://codecov.io/gh/YOUR_GITHUB_USERNAME/orchestrator-rails/graph/badge.svg)](https://codecov.io/gh/YOUR_GITHUB_USERNAME/orchestrator-rails)
+
 > **TL;DR:** A self-hosted job queue that runs AI coding prompts in parallel against your local repos.
 
 <p align="center">
@@ -167,32 +169,16 @@ bin/rails db:prepare
 ## Running
 
 You need **two processes**: the web server and the Solid Queue worker.
-
-### Windows
-
-```powershell
-# Terminal 1 — web (Puma)
-.\bin\start-web.ps1
-```
-
-```powershell
-# Terminal 2 — Solid Queue worker pool (--mode async, see notes)
-.\bin\start-worker.ps1
-```
-
-> **Windows note:** Solid Queue defaults to a forking supervisor, which
-> is unimplemented on Windows. The script above passes `--mode async` so
-> workers run as threads inside one process. Functionally identical for
-> this app.
-
-### macOS / Linux
+`bin/run` detects the OS and picks the right flags automatically
+(Windows gets `--mode async` because Solid Queue's fork supervisor
+is unimplemented there).
 
 ```bash
-# Terminal 1 — web
-bin/rails server
+# Terminal 1 — web (Puma)
+make run ui
 
 # Terminal 2 — Solid Queue worker pool
-bin/jobs start
+make run workers
 ```
 
 Then open:

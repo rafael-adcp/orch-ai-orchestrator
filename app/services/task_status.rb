@@ -29,9 +29,9 @@ class TaskStatus
   # either layer. That includes the awkward case where Solid Queue
   # exhausted its retries (job :failed) while AiTask is still in_flight;
   # the presenter is the only place that reconciles the two, so it owns
-  # this rule. Cancelled tasks are excluded because the user explicitly
-  # stopped them.
-  RETRYABLE_LABELS = %i[done failed needs_review blocked].freeze
+  # this rule. Cancelled tasks are included: a user may cancel, inspect,
+  # then decide to re-run the same task.
+  RETRYABLE_LABELS = %i[done failed needs_review blocked cancelled].freeze
   def retryable?     = RETRYABLE_LABELS.include?(label)
 
   def attempts

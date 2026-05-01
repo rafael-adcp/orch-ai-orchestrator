@@ -100,4 +100,23 @@ class TaskPurgeTest < ActiveSupport::TestCase
     assert_equal 0, report.deleted_count
     assert_equal 1, AiTask.count
   end
+
+  test "sweep never deletes recurring tasks regardless of age" do
+    old_recurring = AiTask.create!(
+      repo_path: "/tmp/r", prompt: "repeat",
+      outcome: AiTask::DONE, finished_at: 60.days.ago,
+      recurring_interval_hours: 6
+    )
+    old_one_shot = AiTask.create!(
+      repo_path: "/tmp/r", prompt: "old one-shot",
+      outcome: AiTask::DONE, finished_at: 60.days.ago
+    )
+
+    report = TaskPurge.sweep(older_than: 30.days.ago)
+
+    assert AiTask.exists?(old_recurring.id), "recurring tasks must never be swept"
+    refute AiTask.exists?(old_one_shot.id),  "non-recurring old tasks must be swept"
+    assert_equal 1, report.deleted_count
+    assert_equal 0, report.skipped_count
+  end
 end

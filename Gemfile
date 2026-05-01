@@ -49,6 +49,8 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+  gem "rubocop-performance", require: false
+  gem "rubocop-minitest", require: false
 end
 
 group :development do
@@ -61,3 +63,4 @@ gem "minitest-spec-rails", "~> 7.4"
 
 gem "capybara", "~> 3.40", group: :test
 gem "selenium-webdriver", "~> 4.43", group: :test
+gem "simplecov", require: false, group: :test

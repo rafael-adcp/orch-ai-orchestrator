@@ -4,13 +4,15 @@
 # Tell-don't-ask: callers ask for `delete(task)` and trust this service to
 # tidy every seam.
 class TaskPurge
-  DEFAULT_AGE = 30.days
-
   Result      = Struct.new(:deleted, :reason, keyword_init: true) { def deleted? = deleted }
   SweepReport = Struct.new(:deleted_count, :skipped_count, keyword_init: true)
 
+  def self.default_age
+    Rails.application.config.orchestrator[:purge_after_hours].hours
+  end
+
   def self.delete(task)             = new.delete(task)
-  def self.sweep(older_than: DEFAULT_AGE.ago) = new.sweep(older_than: older_than)
+  def self.sweep(older_than: default_age.ago) = new.sweep(older_than: older_than)
 
   def delete(task)
     return refused("task is currently running; cancel it first") if running?(task)
@@ -24,6 +26,7 @@ class TaskPurge
   def sweep(older_than:)
     deleted = skipped = 0
     AiTask.where.not(outcome: AiTask::IN_FLIGHT)
+          .where(recurring_interval_hours: nil)
           .where("finished_at < ?", older_than)
           .find_each do |task|
       delete(task).deleted? ? deleted += 1 : skipped += 1

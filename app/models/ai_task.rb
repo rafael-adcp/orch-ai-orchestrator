@@ -52,6 +52,19 @@ class AiTask < ApplicationRecord
     enqueue!
   end
 
+  def recurring?
+    recurring_interval_hours.present?
+  end
+
+  def schedule_recurrence!
+    update!(outcome: IN_FLIGHT, error: nil, started_at: nil, finished_at: nil, active_job_id: nil)
+    @status = nil
+    job = ProviderRegistry.job_for(provider)
+      .set(priority: -priority, wait: recurring_interval_hours.hours)
+      .perform_later(id)
+    update!(active_job_id: job.job_id)
+  end
+
   def cancel!
     presenter = status
     return false unless in_flight? && presenter.cancellable?

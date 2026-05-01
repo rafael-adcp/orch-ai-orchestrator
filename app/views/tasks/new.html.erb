@@ -33,13 +33,31 @@
           <%= f.label :model, class: label_classes %>
           <%= f.text_field :model, class: input_classes, placeholder: "sonnet" %>
         </div>
+        <div>
+          <%= f.label :effort, class: label_classes %>
+          <%= f.text_field :effort, class: input_classes, placeholder: "max (sonnet) · xhigh (opus)" %>
+        </div>
         <div class="sm:col-span-2">
           <%= f.label :docker_cmd, class: label_classes %>
           <%= f.text_field :docker_cmd, class: "#{input_classes} font-mono", placeholder: "optional: docker run --rm img" %>
         </div>
         <div>
-          <%= f.label :priority, class: label_classes %>
+          <div class="flex items-center gap-1">
+            <%= f.label :priority, class: label_classes %>
+            <span class="group relative inline-block cursor-help text-slate-400 hover:text-slate-600" tabindex="0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/>
+              </svg>
+              <span class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-56 -translate-x-1/2 rounded bg-slate-800 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100">
+                Higher number = runs first. Default is 0. Use a positive integer (e.g. 10) to jump the queue, or a negative one to defer low-urgency tasks.
+              </span>
+            </span>
+          </div>
           <%= f.number_field :priority, value: @task.priority || 0, class: input_classes %>
+        </div>
+        <div>
+          <%= f.label :recurring_interval_hours, "Repeat every (hours)", class: label_classes %>
+          <%= f.number_field :recurring_interval_hours, class: input_classes, placeholder: "leave blank for one-shot", min: 1 %>
         </div>
       </div>
 

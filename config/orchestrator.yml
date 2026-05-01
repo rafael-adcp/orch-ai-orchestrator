@@ -1,0 +1,22 @@
+default: &default
+  purge_after_hours:   24
+  tasks_per_page:      100
+  max_limit_retries:   5
+  default_timezone:    "UTC"
+  timezone_cookie:     "tz"
+  task_log_root:       "log/tasks"
+  claude_bin:          "claude"
+  claude_flags:        "-p --permission-mode acceptEdits"
+  claude_model:        "sonnet"
+  claude_max_turns:    30
+  sentinel:            true
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+  purge_after_hours: 1
+
+production:
+  <<: *default
