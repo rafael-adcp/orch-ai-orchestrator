@@ -29,18 +29,21 @@
           <th class="px-4 py-3 text-left">Repo</th>
           <th class="px-4 py-3 text-left">Prompt</th>
           <th class="px-4 py-3 text-left">Created</th>
+          <th class="px-4 py-3"></th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
         <% @tasks.each do |t| %>
-          <tr class="hover:bg-slate-50">
-            <td class="px-4 py-3 font-mono text-xs">
-              <%= link_to t.id, task_path(t), class: "text-slate-900 hover:underline" %>
-            </td>
+          <tr class="hover:bg-slate-50 cursor-pointer group" onclick="location.href='<%= task_path(t) %>'">
+            <td class="px-4 py-3 font-mono text-xs text-slate-900"><%= t.id %></td>
             <td class="px-4 py-3"><%= status_badge(t.status) %></td>
             <td class="px-4 py-3 font-mono text-xs text-slate-600 truncate max-w-xs"><%= t.repo_path %></td>
             <td class="px-4 py-3 text-slate-700 truncate max-w-md"><%= t.prompt %></td>
             <td class="px-4 py-3 text-slate-500"><%= t.created_at.to_fs(:short) if t.created_at %></td>
+            <td class="px-4 py-3 text-right" onclick="event.stopPropagation()">
+              <%= link_to "Copy", new_task_path(ai_task: { repo_path: t.repo_path, prompt: t.prompt, model: t.model, docker_cmd: t.docker_cmd, priority: t.priority }),
+                    class: "opacity-0 group-hover:opacity-100 rounded px-2 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-600 transition-opacity" %>
+            </td>
           </tr>
         <% end %>
       </tbody>

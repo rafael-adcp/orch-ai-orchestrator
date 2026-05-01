@@ -8,7 +8,8 @@ class TasksController < ApplicationController
   end
 
   def new
-    @task = AiTask.new
+    pre = params.permit(ai_task: [ :repo_path, :prompt, :model, :docker_cmd, :priority ])
+    @task = AiTask.new(pre.fetch(:ai_task, {}))
   end
 
   def create
