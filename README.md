@@ -1,9 +1,13 @@
-# orchestrator (Orch) — Claude Code task queue
+# <img src="images/icon.png" alt="" height="80" valign="middle"> orchestrator (Orch) — Claude Code task queue
 
 Persistent SQLite queue + **Solid Queue** worker pool + **Mission Control**
 dashboard + a Rails web UI. Queue up tasks and it runs `claude -p` in
 parallel (up to N at a time), optionally inside a Docker container for each
 repo.
+
+<p align="center">
+  <img src="images/full_picture.png" alt="Orchestrator UI overview">
+</p>
 
 ## Why
 
