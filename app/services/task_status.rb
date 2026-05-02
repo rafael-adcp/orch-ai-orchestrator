@@ -45,7 +45,7 @@ class TaskStatus
   end
 
   def discard_queued_job
-    sq_job&.discard if sq_job && !sq_job.claimed?
+    sq_job.discard if sq_job && !sq_job.claimed?
   rescue StandardError
     # Best-effort cleanup; SQ may have already finished or destroyed it.
   end
