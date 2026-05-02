@@ -61,4 +61,14 @@ class LogWriterTest < ActiveSupport::TestCase
     @writer.event(nested, "hello")
     assert File.exist?(nested)
   end
+
+  test "ensure_dir wraps mkdir failures in WriteError" do
+    # Force mkdir_p to fail by making a parent path component a regular file.
+    blocker = File.join(@root, "blocker")
+    File.write(blocker, "")
+    err = assert_raises(LogWriter::WriteError) do
+      @writer.ensure_dir(File.join(blocker, "x.log"))
+    end
+    assert_match(/cannot create log directory/, err.message)
+  end
 end

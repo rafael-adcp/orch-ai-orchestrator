@@ -68,6 +68,21 @@ class LimitDetectorTest < ActiveSupport::TestCase
                     midnight_hit.reset_at, 1
   end
 
+  test "reset_at is nil for an unknown timezone in the line" do
+    hit = @detector.detect("You've hit your limit · resets 11:20pm (Mars/Olympus)\n")
+    assert_kind_of LimitDetector::Hit, hit
+    assert_nil hit.reset_at
+  end
+
+  test "reset_at is nil if the clock raises during parse (defensive rescue)" do
+    raising_clock = Class.new { def current; raise "boom"; end }.new
+    detector = LimitDetector.new(clock: raising_clock)
+
+    hit = detector.detect("You've hit your limit · resets 11:20pm (America/Sao_Paulo)\n")
+    assert_kind_of LimitDetector::Hit, hit
+    assert_nil hit.reset_at
+  end
+
   test "rolls to next day if reset time is already past" do
     # 11:25pm SP time, reset says 11:20pm — already passed, should be tomorrow
     freeze_at = Time.find_zone("America/Sao_Paulo").local(2026, 4, 30, 23, 25, 0).utc

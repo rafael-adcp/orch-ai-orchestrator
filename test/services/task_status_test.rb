@@ -136,4 +136,18 @@ class TaskStatusTest < ActiveSupport::TestCase
     retrying_sq = FakeJobClass.new(records: { "uuid-1" => [ FakeSqJob.new(scheduled: true, executions: 1) ] })
     refute TaskStatus.new(task, sq_job_class: retrying_sq).retryable?
   end
+
+  test "attempts returns 1 when sq_job has nil arguments" do
+    nil_args_job = Class.new do
+      def claimed?     = false
+      def ready?       = true
+      def scheduled?   = false
+      def failed?      = false
+      def scheduled_at = nil
+      def arguments    = nil
+    end.new
+    sq = FakeJobClass.new(records: { "uuid-1" => [ nil_args_job ] })
+
+    assert_equal 1, TaskStatus.new(task, sq_job_class: sq).attempts
+  end
 end

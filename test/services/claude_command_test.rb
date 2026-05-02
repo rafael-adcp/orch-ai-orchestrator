@@ -102,6 +102,21 @@ class ClaudeCommandTest < ActiveSupport::TestCase
     end
   end
 
+  test "resolve_bin: skips empty PATH entries (e.g. ';;') and keeps searching" do
+    Dir.mktmpdir do |dir|
+      fake_exe = File.join(dir, "claude.exe")
+      File.write(fake_exe, "")
+
+      with_env("PATH" => "#{File::PATH_SEPARATOR}#{dir}", "PATHEXT" => ".EXE") do
+        with_win_platform(true) do
+          cmd = ClaudeCommand.new(bin: "claude", flags: [], model: "sonnet", max_turns: 1)
+          assert_equal fake_exe, cmd.build(task).first,
+            "empty leading PATH entry must be skipped, not treated as cwd"
+        end
+      end
+    end
+  end
+
   test "resolve_bin: on non-Windows, bin is passed through untouched even with PATHEXT set" do
     with_env("PATHEXT" => ".EXE") do
       with_win_platform(false) do

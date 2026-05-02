@@ -156,6 +156,23 @@ class ClaudeRunnerTest < ActiveSupport::TestCase
     assert_match(/tests fail/, @task.error)
   end
 
+  test "mark_failed_safely is a no-op once the task is already terminal" do
+    @task.mark_done!(now: @clock.current)
+    runner = ClaudeRunner.new(@task, subprocess: FakeClaude.new, clock: @clock)
+
+    runner.send(:mark_failed_safely, "would orphan a terminal task")
+    @task.reload
+
+    assert_equal "done", @task.outcome, "must not overwrite a terminal outcome"
+  end
+
+  test "log_event is a no-op while the task has no log_path yet" do
+    fresh = AiTask.create!(repo_path: @repo, prompt: "no log yet")
+    runner = ClaudeRunner.new(fresh, subprocess: FakeClaude.new, clock: @clock)
+    assert_nil fresh.log_path
+    assert_nothing_raised { runner.send(:log_event, "before start") }
+  end
+
   test "non-zero exit beats sentinel (claude crashed after declaring success)" do
     fake = FakeClaude.new(scripts: {
       /.*/ => { lines: [ "ORCH_RESULT: SUCCESS\n" ], exit: 1 }

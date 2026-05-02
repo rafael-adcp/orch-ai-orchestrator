@@ -5,7 +5,7 @@
 # tidy every seam.
 class TaskPurge
   Result      = Struct.new(:deleted, :reason, keyword_init: true) { def deleted? = deleted }
-  SweepReport = Struct.new(:deleted_count, :skipped_count, keyword_init: true)
+  SweepReport = Struct.new(:deleted_count, keyword_init: true)
 
   def self.default_age
     Rails.application.config.orchestrator[:purge_after_hours].hours
@@ -23,15 +23,18 @@ class TaskPurge
     Result.new(deleted: true)
   end
 
+  # The sweep query already excludes IN_FLIGHT rows, so delete() can never
+  # refuse here — every iteration counts as deleted.
   def sweep(older_than:)
-    deleted = skipped = 0
+    deleted = 0
     AiTask.where.not(outcome: AiTask::IN_FLIGHT)
           .where(recurring_interval_hours: nil)
           .where("finished_at < ?", older_than)
           .find_each do |task|
-      delete(task).deleted? ? deleted += 1 : skipped += 1
+      delete(task)
+      deleted += 1
     end
-    SweepReport.new(deleted_count: deleted, skipped_count: skipped)
+    SweepReport.new(deleted_count: deleted)
   end
 
   private

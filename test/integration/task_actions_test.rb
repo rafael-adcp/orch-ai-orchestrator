@@ -71,6 +71,19 @@ class TaskActionsTest < ActionDispatch::IntegrationTest
     assert_equal "done", task.outcome
   end
 
+  test "destroy refuses a running task and redirects with an alert" do
+    task = AiTask.create!(repo_path: @repo, prompt: "running")
+    refused = TaskPurge::Result.new(deleted: false, reason: "task is currently running; cancel it first")
+
+    stub_singleton(TaskPurge, :delete, refused) do
+      delete task_path(task)
+    end
+
+    assert_redirected_to task_path(task)
+    assert_match(/cannot delete/, flash[:alert].to_s)
+    assert AiTask.exists?(task.id), "refused task must not be destroyed"
+  end
+
   test "destroy deletes a finished task and its log, and redirects to the index" do
     task = AiTask.create!(repo_path: @repo, prompt: "delete me",
                           outcome: AiTask::DONE, finished_at: Time.current)

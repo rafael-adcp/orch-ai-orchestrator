@@ -117,6 +117,5 @@ class TaskPurgeTest < ActiveSupport::TestCase
     assert AiTask.exists?(old_recurring.id), "recurring tasks must never be swept"
     refute AiTask.exists?(old_one_shot.id),  "non-recurring old tasks must be swept"
     assert_equal 1, report.deleted_count
-    assert_equal 0, report.skipped_count
   end
 end
