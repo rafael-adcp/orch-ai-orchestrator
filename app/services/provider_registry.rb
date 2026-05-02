@@ -14,10 +14,6 @@ class ProviderRegistry
       @registry.fetch(provider.to_s) { raise UnknownProvider, provider.inspect }
     end
 
-    def known
-      @registry.keys
-    end
-
     def reset!
       @registry = {}
     end
