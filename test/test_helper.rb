@@ -1,9 +1,17 @@
 ENV["RAILS_ENV"] ||= "test"
 require "simplecov"
-SimpleCov.start "rails"
+SimpleCov.start "rails" do
+  enable_coverage :branch
+  add_filter "/test/"
+  add_filter "/config/"
+  add_filter "/db/"
+  add_filter "/bin/"
+end
 require_relative "../config/environment"
 require "rails/test_help"
 require "minitest/spec"
+
+Rails.application.eager_load!
 
 module ActiveSupport
   class TestCase
