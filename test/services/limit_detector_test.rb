@@ -21,7 +21,7 @@ class LimitDetectorTest < ActiveSupport::TestCase
   end
 
   test "patterns are injectable" do
-    custom = LimitDetector.new(patterns: [/banana/])
+    custom = LimitDetector.new(patterns: [ /banana/ ])
     assert_nil custom.detect("usage limit reached\n")
     assert_kind_of LimitDetector::Hit, custom.detect("found banana\n")
   end
