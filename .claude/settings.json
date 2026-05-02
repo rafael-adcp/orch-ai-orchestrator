@@ -34,7 +34,21 @@
       "Bash(git stash)",
       "Bash(git stash pop)",
       "Bash(git stash list)",
-      "Bash(git stash show *)"
+      "Bash(git stash show *)",
+      "Bash(git fetch)",
+      "Bash(git fetch *)",
+      "Bash(bundle install)",
+      "Bash(bundle install *)",
+      "Bash(bin/rails db:test:prepare)",
+      "Bash(bin/brakeman)",
+      "Bash(bin/brakeman *)",
+      "Bash(bin/bundler-audit)",
+      "Bash(bin/bundler-audit *)",
+      "Bash(bin/importmap audit)",
+      "Bash(bundle exec brakeman)",
+      "Bash(bundle exec brakeman *)",
+      "Bash(bundle exec bundler-audit)",
+      "Bash(bundle exec bundler-audit *)"
     ]
   }
 }
