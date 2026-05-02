@@ -4,6 +4,8 @@
 
 > **TL;DR:** A self-hosted job queue that runs AI coding prompts in parallel against your local repos.
 
+> ⚠️ **Status: work in progress.** Orch is pre-1.0 and still being actively built. Expect occasional malfunctions and breaking changes between commits. If you hit something broken / wonky, please [open an issue](../../issues) — bug reports are very welcome.
+
 <p align="center">
   <img src="images/full_picture.png" alt="Orchestrator UI overview">
 </p>
