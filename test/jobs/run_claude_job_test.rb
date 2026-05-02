@@ -88,7 +88,7 @@ class RunClaudeJobTest < ActiveSupport::TestCase
     task = AiTask.create!(repo_path: @repo, prompt: "go")
 
     job = RunClaudeJob.new(task.id)
-    job.executions = RunClaudeJob::MAX_LIMIT_RETRIES
+    job.executions = Rails.application.config.orchestrator[:max_limit_retries]
 
     assert_raises(Claude::UsageLimitError) { job.perform(task.id) }
     assert_enqueued_jobs 0, only: RunClaudeJob
