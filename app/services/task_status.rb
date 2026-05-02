@@ -39,8 +39,9 @@ class TaskStatus
     Integer(sq_job.arguments&.dig("executions") || 0) + 1
   end
 
+  # retrying? requires sq_job to exist (see #label), so no safe-nav here.
   def next_retry_at
-    sq_job&.scheduled_at if retrying?
+    sq_job.scheduled_at if retrying?
   end
 
   def discard_queued_job
