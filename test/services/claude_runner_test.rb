@@ -26,7 +26,7 @@ class ClaudeRunnerTest < ActiveSupport::TestCase
     assert_predicate @task.started_at, :present?
     assert_predicate @task.finished_at, :present?
     assert_predicate @task.log_path, :present?
-    assert File.read(@task.log_path).include?("hello")
+    assert_includes File.read(@task.log_path), "hello"
   end
 
   test "non-zero exit sets outcome=failed with error" do
@@ -88,8 +88,8 @@ class ClaudeRunnerTest < ActiveSupport::TestCase
     content = File.read(@task.reload.log_path)
     assert_match(/starting work on task #{@task.id}/, content)
     assert_match(/task completed successfully/, content)
-    assert content.include?("line 1")
-    assert content.include?("line 2")
+    assert_includes content, "line 1"
+    assert_includes content, "line 2"
     assert_match(/\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\]/, content)
   end
 

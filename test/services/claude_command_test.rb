@@ -54,8 +54,8 @@ class ClaudeCommandTest < ActiveSupport::TestCase
     argv = cmd.build(task(docker_cmd: "docker run --rm img"))
     assert_equal [ "docker", "run", "--rm", "img" ], argv.first(4)
     inner = argv.last
-    assert inner.include?("claude"), "inner claude command should be shell-joined"
-    assert inner.include?(Shellwords.shellescape("do x")), "prompt should appear in inner string (shell-escaped)"
+    assert_includes inner, "claude", "inner claude command should be shell-joined"
+    assert_includes inner, Shellwords.shellescape("do x"), "prompt should appear in inner string (shell-escaped)"
   end
 
   # --- Regression: Windows bin resolution ----------------------------------
@@ -95,7 +95,7 @@ class ClaudeCommandTest < ActiveSupport::TestCase
 
   test "resolve_bin: absolute or path-containing bins are passed through untouched" do
     with_win_platform(true) do
-      ["C:/tools/claude.exe", "C:\\tools\\claude.exe", "./bin/claude"].each do |path|
+      [ "C:/tools/claude.exe", "C:\\tools\\claude.exe", "./bin/claude" ].each do |path|
         cmd = ClaudeCommand.new(bin: path, flags: [], model: "sonnet", max_turns: 1)
         assert_equal path, cmd.build(task).first, "#{path} should pass through unchanged"
       end

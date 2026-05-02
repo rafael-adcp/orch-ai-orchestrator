@@ -2,10 +2,13 @@ require "test_helper"
 
 class PurgeOldTasksJobTest < ActiveSupport::TestCase
   setup do
+    freeze_time
     AiTask.create!(repo_path: "/tmp/r", prompt: "old",   outcome: AiTask::DONE,   finished_at: 10.hours.ago)
     AiTask.create!(repo_path: "/tmp/r", prompt: "fresh", outcome: AiTask::DONE,   finished_at: 1.hour.ago)
     AiTask.create!(repo_path: "/tmp/r", prompt: "live",  outcome: AiTask::IN_FLIGHT)
   end
+
+  teardown { travel_back }
 
   test "default invocation drops only tasks older than the configured purge age" do
     PurgeOldTasksJob.perform_now

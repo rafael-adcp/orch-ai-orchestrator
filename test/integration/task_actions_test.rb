@@ -86,15 +86,17 @@ class TaskActionsTest < ActionDispatch::IntegrationTest
   end
 
   test "purge sweeps old terminal tasks and reports the count" do
-    old   = AiTask.create!(repo_path: @repo, prompt: "old",   outcome: AiTask::DONE, finished_at: 10.hours.ago)
-    fresh = AiTask.create!(repo_path: @repo, prompt: "fresh", outcome: AiTask::DONE, finished_at: 1.hour.ago)
+    freeze_time do
+      old   = AiTask.create!(repo_path: @repo, prompt: "old",   outcome: AiTask::DONE, finished_at: 10.hours.ago)
+      fresh = AiTask.create!(repo_path: @repo, prompt: "fresh", outcome: AiTask::DONE, finished_at: 1.hour.ago)
 
-    post purge_tasks_path
+      post purge_tasks_path
 
-    assert_redirected_to tasks_path
-    assert_nil flash[:notice]
-    refute AiTask.exists?(old.id)
-    assert AiTask.exists?(fresh.id)
+      assert_redirected_to tasks_path
+      assert_nil flash[:notice]
+      refute AiTask.exists?(old.id)
+      assert AiTask.exists?(fresh.id)
+    end
   end
 
   test "Mission Control engine is mounted at /jobs" do
