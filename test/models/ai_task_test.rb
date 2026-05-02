@@ -1,6 +1,8 @@
 require "test_helper"
 
 class AiTaskTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   def valid_attrs(extra = {})
     { repo_path: "/tmp/repo", prompt: "do thing" }.merge(extra)
   end
