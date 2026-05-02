@@ -21,5 +21,14 @@
     "ruby": true,
     "rake": true,
     "where.exe": true
+  },
+  "rubyLsp.linters": ["rubocop"],
+  "rubyLsp.formatter": "rubocop",
+  "[ruby]": {
+    "editor.defaultFormatter": "Shopify.ruby-lsp",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.rubocop": "explicit"
+    }
   }
 }
