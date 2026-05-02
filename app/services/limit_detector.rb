@@ -38,15 +38,16 @@ class LimitDetector
   def compute_reset(tz, time_str)
     return nil unless tz
     h, min = to_24h(time_str)
-    return nil unless h
     local = @clock.current.in_time_zone(tz)
     cand = tz.local(local.year, local.month, local.day, h, min, 0)
     cand <= local ? cand + 1.day : cand
   end
 
+  # The outer RESET_PATTERN already constrained time_str to the same shape
+  # HOUR_PATTERN matches, so the inner match is guaranteed. If the regexes
+  # ever diverge, parse_reset_at's rescue catches the resulting NoMethodError.
   def to_24h(time_str)
     m = time_str.match(HOUR_PATTERN)
-    return nil unless m
     h, min, mer = m[1].to_i, m[2].to_i, m[3].downcase
     [ normalize_hour(h, mer), min ]
   end
