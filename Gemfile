@@ -64,3 +64,4 @@ gem "minitest-spec-rails", "~> 7.4"
 gem "capybara", "~> 3.40", group: :test
 gem "selenium-webdriver", "~> 4.43", group: :test
 gem "simplecov", require: false, group: :test
+gem "simplecov-cobertura", require: false, group: :test

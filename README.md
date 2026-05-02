@@ -1,6 +1,6 @@
 # <img src="images/icon.png" alt="" height="80" valign="middle"> Orchestrator (Orch)
 
-[![codecov](https://codecov.io/gh/YOUR_GITHUB_USERNAME/orchestrator-rails/graph/badge.svg)](https://codecov.io/gh/YOUR_GITHUB_USERNAME/orchestrator-rails)
+[![codecov](https://codecov.io/gh/rafael-adcp/orch-ai-orchestrator/graph/badge.svg)](https://codecov.io/gh/rafael-adcp/orch-ai-orchestrator)
 
 > **TL;DR:** A self-hosted job queue that runs AI coding prompts in parallel against your local repos.
 

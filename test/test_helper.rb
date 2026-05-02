@@ -1,11 +1,16 @@
 ENV["RAILS_ENV"] ||= "test"
 require "simplecov"
+require "simplecov-cobertura"
 SimpleCov.start "rails" do
   enable_coverage :branch
   add_filter "/test/"
   add_filter "/config/"
   add_filter "/db/"
   add_filter "/bin/"
+  formatter SimpleCov::Formatter::MultiFormatter.new([
+    SimpleCov::Formatter::HTMLFormatter,
+    SimpleCov::Formatter::CoberturaFormatter
+  ])
 end
 require_relative "../config/environment"
 require "rails/test_help"
