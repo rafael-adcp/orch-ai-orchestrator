@@ -136,6 +136,15 @@ class RunClaudeJobTest < ActiveSupport::TestCase
     assert_equal 1, RunClaudeJob.concurrency_limit
   end
 
+  # Solid Queue's default `concurrency_duration` is 3 minutes — far shorter
+  # than a real Claude task. If the lock expires mid-task, a second job for
+  # the same repo gets dispatched and the README's per-repo isolation
+  # guarantee silently breaks.
+  test "concurrency lock outlasts a realistic Claude task" do
+    assert_operator RunClaudeJob.concurrency_duration, :>=, 1.hour,
+      "concurrency_duration must outlast realistic tasks; got #{RunClaudeJob.concurrency_duration.inspect}"
+  end
+
   # --- recurring ---
 
   test "schedules next run after completing a recurring task" do
