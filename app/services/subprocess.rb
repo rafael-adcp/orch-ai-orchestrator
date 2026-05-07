@@ -8,14 +8,13 @@ class Subprocess
   # matter, only that it is non-zero so finalize() routes to mark_failed!.
   SIGNAL_TERMINATED = 128
 
+  # `chdir:` is a Process.spawn option that sets the *child's* cwd at spawn
+  # time, leaving the parent's cwd untouched. Using Dir.chdir here would
+  # mutate process-global state and collide across worker threads.
   def run(argv, cwd:, on_line:)
-    status = nil
-    Dir.chdir(cwd) do
-      IO.popen(argv, err: %i[child out]) do |io|
-        io.each_line { |line| on_line.call(line) }
-      end
-      status = $?.exitstatus || SIGNAL_TERMINATED
+    IO.popen(argv, err: %i[child out], chdir: cwd) do |io|
+      io.each_line { |line| on_line.call(line) }
     end
-    Result.new(exit_status: status)
+    Result.new(exit_status: $?.exitstatus || SIGNAL_TERMINATED)
   end
 end
