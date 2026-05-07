@@ -10,6 +10,8 @@
   <div class="flex items-center gap-2">
     <%= link_to "View log", log_task_path(@task),
           class: "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50" %>
+    <%= link_to "Copy", new_task_path(ai_task: { repo_path: @task.repo_path, prompt: @task.prompt, model: @task.model, docker_cmd: @task.docker_cmd, priority: @task.priority }),
+          class: "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50" %>
     <% if status.retryable? %>
       <%= button_to "Retry", retry_task_path(@task), method: :post,
             form: { class: "inline", data: { turbo_confirm: "Retry task #{@task.id}?" } },
