@@ -1,3 +1,9 @@
+> [!IMPORTANT]
+> **Superseded by [Kraken](https://github.com/rafael-adcp/kraken)** 🐙 — the same
+> architecture (queue, worker pool, verdicts, heartbeats, audit trail) rebuilt on
+> GitHub Issues + a Claude Code plugin, with zero infrastructure to operate.
+> Here lies the 10,000-line version of an idea that fit in 200 lines of markdown.
+
 # <img src="images/icon.png" alt="" height="80" valign="middle"> Orchestrator (Orch)
 
 [![codecov](https://codecov.io/gh/rafael-adcp/orch-ai-orchestrator/graph/badge.svg)](https://codecov.io/gh/rafael-adcp/orch-ai-orchestrator)
